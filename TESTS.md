@@ -44,9 +44,8 @@ Wheel fallback (skip local builds)
     - `pip install --upgrade --only-binary=:all: numpy scipy`
   - Install scikit-learn as a wheel when available for your platform:
     - `pip install --upgrade --only-binary=:all: scikit-learn`
-  - Then install test extras (if not already present):
-    - `pip install .[tests]` (this adds test-only dependencies; it will not rebuild
-      extensions if scikit-learn is already installed as a wheel)
+  - Install test extras from the published wheel (avoids local rebuild):
+    - `pip install --upgrade 'scikit-learn[tests]'`
   - Note: Wheels may not be available for all Python versions/architectures. If pip
     falls back to source builds, re-check your toolchain or pin to a supported
     Python/OS.
