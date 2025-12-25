@@ -48,6 +48,8 @@ def clone(estimator, safe=True):
     # XXX: not handling dictionaries
     if estimator_type in (list, tuple, set, frozenset):
         return estimator_type([clone(e, safe=safe) for e in estimator])
+    elif isinstance(estimator, type):
+        return estimator
     elif not hasattr(estimator, 'get_params'):
         if not safe:
             return copy.deepcopy(estimator)

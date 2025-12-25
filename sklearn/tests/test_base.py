@@ -20,6 +20,7 @@ from sklearn.base import BaseEstimator, clone, is_classifier
 from sklearn.svm import SVC
 from sklearn.pipeline import Pipeline
 from sklearn.model_selection import GridSearchCV
+from sklearn.linear_model import LogisticRegression
 
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.tree import DecisionTreeRegressor
@@ -152,6 +153,47 @@ def test_clone_nan():
     clf2 = clone(clf)
 
     assert clf.empty is clf2.empty
+
+
+def test_clone_class_parameter_preserved():
+    class Dummy:
+        pass
+
+    class EstimatorWithClass(BaseEstimator):
+        def __init__(self, param=Dummy):
+            self.param = param
+
+    cloned = clone(EstimatorWithClass())
+
+    assert cloned.param is Dummy
+
+
+def test_clone_preserves_sklearn_class_parameter():
+    class EstimatorWithSklearnClass(BaseEstimator):
+        def __init__(self, param=LogisticRegression):
+            self.param = param
+
+    cloned = clone(EstimatorWithSklearnClass())
+
+    assert cloned.param is LogisticRegression
+
+
+def test_clone_recurses_on_estimator_instances():
+    class InnerEstimator(BaseEstimator):
+        def __init__(self, value=None):
+            self.value = value
+
+    class OuterEstimator(BaseEstimator):
+        def __init__(self, inner=None):
+            self.inner = inner
+
+    inner = InnerEstimator(value=5)
+    outer = OuterEstimator(inner=inner)
+    cloned = clone(outer)
+
+    assert cloned.inner is not inner
+    assert isinstance(cloned.inner, InnerEstimator)
+    assert cloned.inner.value == 5
 
 
 def test_clone_sparse_matrices():
