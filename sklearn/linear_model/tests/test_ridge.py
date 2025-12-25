@@ -598,6 +598,38 @@ def test_ridgecv_store_cv_values():
     assert_equal(r.cv_values_.shape, (n_samples, n_responses, n_alphas))
 
 
+def test_ridgeclassifiercv_store_cv_values_binary():
+    X = np.array([[0.0, 0.0], [1.0, 1.0], [2.0, 2.0], [3.0, 3.0]])
+    y = np.array([0, 0, 1, 1])
+    alphas = [0.1, 1.0, 10.0]
+
+    reg = RidgeClassifierCV(alphas=alphas, store_cv_values=True, cv=None)
+    reg.fit(X, y)
+
+    assert_equal(reg.cv_values_.shape, (X.shape[0], 1, len(alphas)))
+
+
+def test_ridgeclassifiercv_store_cv_values_multiclass():
+    alphas = [0.1, 1.0, 10.0]
+
+    reg = RidgeClassifierCV(alphas=alphas, store_cv_values=True, cv=None)
+    reg.fit(iris.data, iris.target)
+
+    assert_equal(reg.cv_values_.shape,
+                 (iris.data.shape[0], 3, len(alphas)))
+
+
+def test_ridgeclassifiercv_store_cv_values_with_cv_raises():
+    X = np.array([[0.0, 0.0], [1.0, 1.0], [2.0, 2.0], [3.0, 3.0]])
+    y = np.array([0, 0, 1, 1])
+    alphas = [0.1, 1.0, 10.0]
+
+    reg = RidgeClassifierCV(alphas=alphas, store_cv_values=True, cv=3)
+
+    assert_raise_message(ValueError, "store_cv_values",
+                         reg.fit, X, y)
+
+
 def test_ridgecv_sample_weight():
     rng = np.random.RandomState(0)
     alphas = (0.1, 1.0, 10.0)
