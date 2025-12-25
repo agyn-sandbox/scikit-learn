@@ -274,3 +274,17 @@ def test_fowlkes_mallows_score_properties():
     # symmetric and permutation(both together)
     score_both = fowlkes_mallows_score(labels_b, (labels_a + 2) % 3)
     assert_almost_equal(score_both, expected)
+
+
+def test_fowlkes_mallows_large_int32_no_overflow():
+    # Regress overflow in denominator: ensure no RuntimeWarning and finite result
+    import warnings
+    n = 65536
+    labels = np.zeros(n, dtype=np.int32)
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter('always')
+        score = fowlkes_mallows_score(labels, labels)
+        # No overflow warnings
+        assert not any('overflow' in str(warn.message) for warn in w), [str(warn.message) for warn in w]
+    # Perfect match should be ~1.0
+    assert_almost_equal(score, 1.0)
