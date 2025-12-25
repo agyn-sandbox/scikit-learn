@@ -3,6 +3,7 @@ import scipy.sparse as sp
 from scipy import linalg, optimize, sparse
 
 import pytest
+import warnings
 
 from sklearn.datasets import load_iris, make_classification
 from sklearn.metrics import log_loss
@@ -29,6 +30,7 @@ from sklearn.linear_model.logistic import (
     logistic_regression_path, LogisticRegressionCV,
     _logistic_loss_and_grad, _logistic_grad_hess,
     _multinomial_grad_hess, _logistic_loss,
+    _log_reg_scoring_path,
 )
 
 X = [[-1, 0], [0, 1], [1, 1]]
@@ -132,7 +134,9 @@ def test_logistic_cv_score_does_not_warn_by_default():
     lr = LogisticRegressionCV(cv=2)
     lr.fit(X, Y1)
 
-    with pytest.warns(None) as record:
+    with warnings.catch_warnings(record=True) as record:
+        warnings.simplefilter('always')
+        warnings.simplefilter('ignore', DeprecationWarning)
         lr.score(X, lr.predict(X))
     assert len(record) == 0
 
@@ -442,8 +446,8 @@ def test_logistic_regression_cv_multinomial_scoring():
                                 refit=False, max_iter=100, random_state=0)
     lrcv.fit(X, y)
 
-    for class_label, scores in lrcv.scores_.items():
-        assert_array_almost_equal(scores, expected_scores)
+    for _, scores in lrcv.scores_.items():
+        assert_array_almost_equal(scores.T, expected_scores)
 
 
 def test_liblinear_dual_random_state():
