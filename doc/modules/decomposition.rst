@@ -392,6 +392,12 @@ They have been shown useful in literature for classification tasks. For image
 reconstruction tasks, orthogonal matching pursuit yields the most accurate,
 unbiased reconstruction.
 
+When using the coordinate descent variant
+(``transform_algorithm='lasso_cd'``), the :class:`SparseCoder`
+``transform_max_iter`` parameter can be increased to let the
+underlying Lasso solver run for more iterations when convergence
+requires it.
+
 The dictionary learning objects offer, via the ``split_code`` parameter, the
 possibility to separate the positive and negative values in the results of
 sparse coding. This is useful when dictionary learning is used for extracting

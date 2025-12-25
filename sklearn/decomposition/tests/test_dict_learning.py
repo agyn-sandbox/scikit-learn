@@ -1,7 +1,9 @@
-import pytest
+import itertools
+import warnings
+from unittest.mock import patch
 
 import numpy as np
-import itertools
+import pytest
 
 from sklearn.exceptions import ConvergenceWarning
 
@@ -432,6 +434,89 @@ def test_sparse_coder_estimator():
                        transform_alpha=0.001).transform(X)
     assert not np.all(code == 0)
     assert_less(np.sqrt(np.sum((np.dot(code, V) - X) ** 2)), 0.1)
+
+
+@pytest.mark.parametrize(
+    "transform_algorithm, transform_max_iter, expects_forward",
+    [
+        ("lasso_cd", 321, True),
+        ("lasso_cd", None, False),
+        ("lasso_lars", 321, False),
+    ],
+)
+def test_sparse_coder_transform_max_iter_forwarding(
+        transform_algorithm, transform_max_iter, expects_forward):
+    dictionary = np.array([[1.0, 0.0], [0.0, 1.0]])
+    data = np.array([[0.5, -0.1]])
+
+    target = 'sklearn.decomposition.dict_learning.sparse_encode'
+    with patch(target) as mock_encode:
+        mock_encode.return_value = np.zeros(
+            (data.shape[0], dictionary.shape[0])
+        )
+        coder = SparseCoder(
+            dictionary=dictionary,
+            transform_algorithm=transform_algorithm,
+            transform_max_iter=transform_max_iter,
+        )
+        coder.transform(data)
+
+    assert mock_encode.call_count == 1
+    _, kwargs = mock_encode.call_args
+    if expects_forward:
+        assert kwargs['max_iter'] == transform_max_iter
+    else:
+        assert 'max_iter' not in kwargs
+
+
+def test_sparse_coder_transform_max_iter_controls_warning():
+    dictionary = np.array([[1.0, 0.0], [0.0, 1.0]])
+    data = np.array([[0.5, -0.1]])
+
+    class DummyLasso:
+        def __init__(self, *, alpha, fit_intercept, normalize,
+                     precompute, max_iter, warm_start, positive):
+            self.max_iter = max_iter
+            self.coef_ = None
+
+        def fit(self, X, y, check_input=True):
+            if self.max_iter <= 1000:
+                warnings.warn(
+                    "dummy lasso convergence warning",
+                    ConvergenceWarning,
+                )
+            expected_shape = (y.shape[1], X.shape[1])
+            if self.coef_ is None or self.coef_.shape != expected_shape:
+                self.coef_ = np.zeros(expected_shape)
+            return self
+
+    target_path = 'sklearn.decomposition.dict_learning.Lasso'
+    with patch(target_path, DummyLasso):
+        coder_default = SparseCoder(
+            dictionary=dictionary,
+            transform_algorithm='lasso_cd',
+        )
+        with warnings.catch_warnings(record=True) as caught_default:
+            warnings.simplefilter('always', ConvergenceWarning)
+            coder_default.transform(data)
+
+        coder_custom = SparseCoder(
+            dictionary=dictionary,
+            transform_algorithm='lasso_cd',
+            transform_max_iter=2000,
+        )
+        with warnings.catch_warnings(record=True) as caught_custom:
+            warnings.simplefilter('always', ConvergenceWarning)
+            coder_custom.transform(data)
+
+    assert any(
+        isinstance(w.message, ConvergenceWarning)
+        for w in caught_default
+    )
+    assert not any(
+        isinstance(w.message, ConvergenceWarning)
+        for w in caught_custom
+    )
 
 
 def test_sparse_coder_parallel_mmap():
