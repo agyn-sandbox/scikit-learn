@@ -3,6 +3,7 @@ import scipy.sparse as sp
 from scipy import linalg, optimize, sparse
 
 import pytest
+import warnings
 
 from sklearn.datasets import load_iris, make_classification
 from sklearn.metrics import log_loss
@@ -29,6 +30,7 @@ from sklearn.linear_model.logistic import (
     logistic_regression_path, LogisticRegressionCV,
     _logistic_loss_and_grad, _logistic_grad_hess,
     _multinomial_grad_hess, _logistic_loss,
+    _log_reg_scoring_path,
 )
 
 X = [[-1, 0], [0, 1], [1, 1]]
@@ -132,7 +134,9 @@ def test_logistic_cv_score_does_not_warn_by_default():
     lr = LogisticRegressionCV(cv=2)
     lr.fit(X, Y1)
 
-    with pytest.warns(None) as record:
+    with warnings.catch_warnings(record=True) as record:
+        warnings.simplefilter('always')
+        warnings.simplefilter('ignore', DeprecationWarning)
         lr.score(X, lr.predict(X))
     assert len(record) == 0
 
@@ -367,6 +371,83 @@ def test_logistic_regression_path_convergence_fail():
     Cs = [1e3]
     assert_warns(ConvergenceWarning, logistic_regression_path,
                  X, y, Cs=Cs, tol=0., max_iter=1, random_state=0, verbose=1)
+
+
+def test_log_reg_scoring_path_multinomial_softmax_scores():
+    X, y = make_classification(n_samples=240, n_features=10,
+                               n_informative=5, n_classes=3,
+                               random_state=0)
+    cv = StratifiedKFold(n_splits=3, shuffle=True, random_state=0)
+    train_idx, test_idx = next(iter(cv.split(X, y)))
+    Cs = np.array([0.1, 1.0, 10.0])
+
+    coefs, Cs_out, scores, _ = _log_reg_scoring_path(
+        X, y, train_idx, test_idx, Cs=Cs, scoring='neg_log_loss',
+        fit_intercept=True, solver='lbfgs', penalty='l2', dual=False,
+        multi_class='multinomial', max_iter=100, random_state=0)
+
+    assert_array_almost_equal(Cs_out, Cs)
+
+    classes = np.unique(y[train_idx])
+    softmax_scores = []
+    ovr_scores = []
+    for coef in coefs:
+        clf_softmax = LogisticRegression(fit_intercept=True,
+                                         solver='lbfgs',
+                                         multi_class='multinomial')
+        clf_softmax.classes_ = classes
+        clf_softmax.coef_ = coef[:, :-1]
+        clf_softmax.intercept_ = coef[:, -1]
+        softmax_scores.append(-log_loss(y[test_idx],
+                                        clf_softmax.predict_proba(
+                                            X[test_idx])))
+
+        clf_ovr = LogisticRegression(fit_intercept=True,
+                                     solver='lbfgs',
+                                     multi_class='ovr')
+        clf_ovr.classes_ = classes
+        clf_ovr.coef_ = coef[:, :-1]
+        clf_ovr.intercept_ = coef[:, -1]
+        ovr_scores.append(-log_loss(y[test_idx],
+                                    clf_ovr.predict_proba(X[test_idx])))
+
+    assert_array_almost_equal(scores, softmax_scores)
+    assert_true(np.max(np.abs(np.array(scores) - np.array(ovr_scores))) > 1e-8)
+
+
+def test_logistic_regression_cv_multinomial_scoring():
+    X, y = make_classification(n_samples=240, n_features=10,
+                               n_informative=5, n_classes=3,
+                               random_state=0)
+    Cs = np.array([0.1, 1.0, 10.0])
+    cv = StratifiedKFold(n_splits=3, shuffle=True, random_state=0)
+
+    expected_scores = np.zeros((Cs.size, cv.get_n_splits()))
+    for fold_idx, (train_idx, test_idx) in enumerate(cv.split(X, y)):
+        coefs, Cs_out, _ = logistic_regression_path(
+            X[train_idx], y[train_idx], Cs=Cs, fit_intercept=True,
+            solver='lbfgs', multi_class='multinomial', max_iter=100,
+            random_state=0)
+
+        assert_array_almost_equal(Cs_out, Cs)
+        classes = np.unique(y[train_idx])
+
+        for c_idx, coef in enumerate(coefs):
+            clf = LogisticRegression(fit_intercept=True, solver='lbfgs',
+                                     multi_class='multinomial')
+            clf.classes_ = classes
+            clf.coef_ = coef[:, :-1]
+            clf.intercept_ = coef[:, -1]
+            expected_scores[c_idx, fold_idx] = -log_loss(
+                y[test_idx], clf.predict_proba(X[test_idx]))
+
+    lrcv = LogisticRegressionCV(Cs=Cs, cv=cv, scoring='neg_log_loss',
+                                solver='lbfgs', multi_class='multinomial',
+                                refit=False, max_iter=100, random_state=0)
+    lrcv.fit(X, y)
+
+    for _, scores in lrcv.scores_.items():
+        assert_array_almost_equal(scores.T, expected_scores)
 
 
 def test_liblinear_dual_random_state():

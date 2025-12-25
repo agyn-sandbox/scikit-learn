@@ -104,38 +104,54 @@ cdef extern from "cblas.h":
         CblasConjTrans=113
         AtlasConj=114
 
-    void daxpy "cblas_daxpy"(int N, double alpha, double *X, int incX,
-                             double *Y, int incY) nogil
-    void saxpy "cblas_saxpy"(int N, float alpha, float *X, int incX,
-                             float *Y, int incY) nogil
-    double ddot "cblas_ddot"(int N, double *X, int incX, double *Y, int incY
-                             ) nogil
-    float sdot "cblas_sdot"(int N, float *X, int incX, float *Y,
-                            int incY) nogil
-    double dasum "cblas_dasum"(int N, double *X, int incX) nogil
-    float sasum "cblas_sasum"(int N, float *X, int incX) nogil
-    void dger "cblas_dger"(CBLAS_ORDER Order, int M, int N, double alpha,
-                           double *X, int incX, double *Y, int incY,
-                           double *A, int lda) nogil
-    void sger "cblas_sger"(CBLAS_ORDER Order, int M, int N, float alpha,
-                           float *X, int incX, float *Y, int incY,
-                           float *A, int lda) nogil
-    void dgemv "cblas_dgemv"(CBLAS_ORDER Order, CBLAS_TRANSPOSE TransA,
-                             int M, int N, double alpha, double *A, int lda,
-                             double *X, int incX, double beta,
-                             double *Y, int incY) nogil
-    void sgemv "cblas_sgemv"(CBLAS_ORDER Order, CBLAS_TRANSPOSE TransA,
-                             int M, int N, float alpha, float *A, int lda,
-                             float *X, int incX, float beta,
-                             float *Y, int incY) nogil
-    double dnrm2 "cblas_dnrm2"(int N, double *X, int incX) nogil
-    float snrm2 "cblas_snrm2"(int N, float *X, int incX) nogil
-    void dcopy "cblas_dcopy"(int N, double *X, int incX, double *Y,
-                             int incY) nogil
-    void scopy "cblas_scopy"(int N, float *X, int incX, float *Y,
-                            int incY) nogil
-    void dscal "cblas_dscal"(int N, double alpha, double *X, int incX) nogil
-    void sscal "cblas_sscal"(int N, float alpha, float *X, int incX) nogil
+    void daxpy "cblas_daxpy"(const int N, const double alpha,
+                              const double *X, const int incX,
+                              double *Y, const int incY) nogil
+    void saxpy "cblas_saxpy"(const int N, const float alpha,
+                              const float *X, const int incX,
+                              float *Y, const int incY) nogil
+    double ddot "cblas_ddot"(const int N, const double *X, const int incX,
+                              const double *Y, const int incY) nogil
+    float sdot "cblas_sdot"(const int N, const float *X, const int incX,
+                             const float *Y, const int incY) nogil
+    double dasum "cblas_dasum"(const int N, const double *X,
+                               const int incX) nogil
+    float sasum "cblas_sasum"(const int N, const float *X,
+                              const int incX) nogil
+    void dger "cblas_dger"(const CBLAS_ORDER Order, const int M,
+                           const int N, const double alpha,
+                           const double *X, const int incX,
+                           const double *Y, const int incY,
+                           double *A, const int lda) nogil
+    void sger "cblas_sger"(const CBLAS_ORDER Order, const int M,
+                           const int N, const float alpha,
+                           const float *X, const int incX,
+                           const float *Y, const int incY,
+                           float *A, const int lda) nogil
+    void dgemv "cblas_dgemv"(const CBLAS_ORDER Order,
+                              const CBLAS_TRANSPOSE TransA,
+                              const int M, const int N, const double alpha,
+                              const double *A, const int lda,
+                              const double *X, const int incX,
+                              const double beta, double *Y, const int incY) nogil
+    void sgemv "cblas_sgemv"(const CBLAS_ORDER Order,
+                              const CBLAS_TRANSPOSE TransA,
+                              const int M, const int N, const float alpha,
+                              const float *A, const int lda,
+                              const float *X, const int incX,
+                              const float beta, float *Y, const int incY) nogil
+    double dnrm2 "cblas_dnrm2"(const int N, const double *X,
+                                const int incX) nogil
+    float snrm2 "cblas_snrm2"(const int N, const float *X,
+                               const int incX) nogil
+    void dcopy "cblas_dcopy"(const int N, const double *X, const int incX,
+                              double *Y, const int incY) nogil
+    void scopy "cblas_scopy"(const int N, const float *X, const int incX,
+                              float *Y, const int incY) nogil
+    void dscal "cblas_dscal"(const int N, const double alpha, double *X,
+                              const int incX) nogil
+    void sscal "cblas_sscal"(const int N, const float alpha, float *X,
+                              const int incX) nogil
 
 
 @cython.boundscheck(False)
@@ -155,6 +171,12 @@ def enet_coordinate_descent(np.ndarray[floating, ndim=1] w,
         (1/2) * norm(y - X w, 2)^2 + alpha norm(w, 1) + (beta/2) norm(w, 2)^2
 
     """
+
+    cdef floating (*dot)(int, const floating*, int,
+                         const floating*, int) nogil
+    cdef void (*axpy)(int, floating, const floating*, int,
+                      floating*, int) nogil
+    cdef floating (*asum)(int, const floating*, int) nogil
 
     # fused types version of BLAS functions
     if floating is float:
@@ -344,6 +366,10 @@ def sparse_enet_coordinate_descent(floating [:] w,
 
     cdef floating[:] X_T_R
     cdef floating[:] XtA
+
+    cdef floating (*dot)(int, const floating*, int,
+                         const floating*, int) nogil
+    cdef floating (*asum)(int, const floating*, int) nogil
 
     # fused types version of BLAS functions
     if floating is float:
@@ -546,6 +572,12 @@ def enet_coordinate_descent_gram(floating[:] w, floating alpha, floating beta,
         q = X^T y
     """
 
+    cdef floating (*dot)(int, const floating*, int,
+                         const floating*, int) nogil
+    cdef void (*axpy)(int, floating, const floating*, int,
+                      floating*, int) nogil
+    cdef floating (*asum)(int, const floating*, int) nogil
+
     # fused types version of BLAS functions
     if floating is float:
         dtype = np.float32
@@ -696,6 +728,18 @@ def enet_coordinate_descent_multi_task(floating[::1, :] W, floating l1_reg,
         (1/2) * norm(y - X w, 2)^2 + l1_reg ||w||_21 + (1/2) * l2_reg norm(w, 2)^2
 
     """
+    cdef floating (*dot)(int, const floating*, int,
+                         const floating*, int) nogil
+    cdef floating (*nrm2)(int, const floating*, int) nogil
+    cdef floating (*asum)(int, const floating*, int) nogil
+    cdef void (*copy)(int, const floating*, int, floating*, int) nogil
+    cdef void (*scal)(int, const floating, floating*, int) nogil
+    cdef void (*ger)(CBLAS_ORDER, int, int, floating, const floating*, int,
+                     const floating*, int, floating*, int) nogil
+    cdef void (*gemv)(CBLAS_ORDER, CBLAS_TRANSPOSE, int, int, floating,
+                      const floating*, int, const floating*, int,
+                      floating, floating*, int) nogil
+
     # fused types version of BLAS functions
     if floating is float:
         dtype = np.float32

@@ -14,7 +14,11 @@ build feature vectors from text documents.
 from __future__ import unicode_literals, division
 
 import array
-from collections import Mapping, defaultdict
+from collections import defaultdict
+try:
+    from collections.abc import Mapping
+except ImportError:  # Python < 3.3
+    from collections import Mapping
 import numbers
 from operator import itemgetter
 import re
