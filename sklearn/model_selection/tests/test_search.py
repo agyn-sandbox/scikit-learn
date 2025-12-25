@@ -9,6 +9,7 @@ import pickle
 import sys
 from types import GeneratorType
 import re
+import time
 
 import numpy as np
 import scipy.sparse as sp
@@ -119,6 +120,24 @@ class LinearSVCNoScore(LinearSVC):
         raise AttributeError
 
 
+class SleepEstimator(BaseEstimator):
+    """Estimator that sleeps during fit to help measure refit time."""
+
+    def __init__(self, sleep=0.05, raise_at_n_samples=None):
+        self.sleep = sleep
+        self.raise_at_n_samples = raise_at_n_samples
+
+    def fit(self, X, y=None):
+        time.sleep(self.sleep)
+        if (self.raise_at_n_samples is not None and
+                len(X) == self.raise_at_n_samples):
+            raise RuntimeError('intentional refit failure')
+        return self
+
+    def score(self, X=None, y=None):
+        return 0.0
+
+
 X = np.array([[-1, -1], [-2, -1], [1, 1], [2, 1]])
 y = np.array([1, 1, 2, 2])
 
@@ -198,6 +217,52 @@ def test_grid_search():
     # Test exception handling on scoring
     grid_search.scoring = 'sklearn'
     assert_raises(ValueError, grid_search.fit, X, y)
+
+
+def test_refit_time_present_and_positive_on_refit_true():
+    X = np.ones((12, 2))
+    y = np.zeros(12)
+    grid = GridSearchCV(SleepEstimator(), {'sleep': [0.05, 0.1]}, cv=3,
+                        refit=True)
+    grid.fit(X, y)
+    assert hasattr(grid, 'refit_time_')
+    assert grid.refit_time_ >= 0.0
+    best_sleep = grid.best_estimator_.sleep
+    assert grid.refit_time_ == pytest.approx(best_sleep, rel=0.5, abs=0.01)
+
+
+def test_refit_time_not_set_when_refit_false():
+    X = np.ones((12, 2))
+    y = np.zeros(12)
+    grid = GridSearchCV(SleepEstimator(), {'sleep': [0.05, 0.1]}, cv=3,
+                        refit=False)
+    grid.fit(X, y)
+    assert not hasattr(grid, 'refit_time_')
+
+
+def test_refit_time_measures_only_refit_phase():
+    X = np.ones((15, 2))
+    y = np.zeros(15)
+    grid = GridSearchCV(SleepEstimator(), {'sleep': [0.05, 0.08]}, cv=5)
+    grid.fit(X, y)
+    total_cv_time = (grid.cv_results_['mean_fit_time'][grid.best_index_] *
+                     grid.n_splits_)
+    assert grid.refit_time_ < total_cv_time
+    assert grid.refit_time_ == pytest.approx(grid.best_estimator_.sleep,
+                                             rel=0.5, abs=0.01)
+
+
+def test_refit_time_set_on_refit_exception():
+    X = np.ones((12, 2))
+    y = np.zeros(12)
+    estimator = SleepEstimator(sleep=0.05, raise_at_n_samples=len(X))
+    grid = GridSearchCV(estimator, {'sleep': [0.05]}, cv=3)
+    with pytest.raises(RuntimeError):
+        grid.fit(X, y)
+    assert hasattr(grid, 'refit_time_')
+    assert grid.refit_time_ >= 0.0
+    assert grid.refit_time_ == pytest.approx(estimator.sleep, rel=0.5,
+                                             abs=0.01)
 
 
 def check_hyperparameter_searcher_with_fit_params(klass, **klass_kwargs):

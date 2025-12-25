@@ -17,6 +17,7 @@ from collections import Mapping, namedtuple, defaultdict, Sequence, Iterable
 from functools import partial, reduce
 from itertools import product
 import operator
+import time
 import warnings
 
 import numpy as np
@@ -405,7 +406,16 @@ class _CVScoreTuple (namedtuple('_CVScoreTuple',
 
 class BaseSearchCV(six.with_metaclass(ABCMeta, BaseEstimator,
                                       MetaEstimatorMixin)):
-    """Base class for hyper parameter search with cross-validation."""
+    """Base class for hyper parameter search with cross-validation.
+
+    Attributes
+    ----------
+    refit_time_ : float
+        Seconds used for refitting the best estimator on the complete
+        dataset when ``refit`` is truthy.
+
+        .. versionadded:: 0.20
+    """
 
     @abstractmethod
     def __init__(self, estimator, scoring=None,
@@ -766,10 +776,14 @@ class BaseSearchCV(six.with_metaclass(ABCMeta, BaseEstimator,
         if self.refit:
             self.best_estimator_ = clone(base_estimator).set_params(
                 **self.best_params_)
-            if y is not None:
-                self.best_estimator_.fit(X, y, **fit_params)
-            else:
-                self.best_estimator_.fit(X, **fit_params)
+            refit_start_time = time.time()
+            try:
+                if y is not None:
+                    self.best_estimator_.fit(X, y, **fit_params)
+                else:
+                    self.best_estimator_.fit(X, **fit_params)
+            finally:
+                self.refit_time_ = time.time() - refit_start_time
 
         # Store the only scorer not as a dict for single metric evaluation
         self.scorer_ = scorers if self.multimetric_ else scorers['score']
@@ -1075,6 +1089,12 @@ class GridSearchCV(BaseSearchCV):
 
     n_splits_ : int
         The number of cross-validation splits (folds/iterations).
+
+    refit_time_ : float
+        Seconds used for refitting the best estimator on the whole dataset.
+        Present only if ``refit`` is truthy.
+
+        .. versionadded:: 0.20
 
     Notes
     ------
@@ -1386,6 +1406,12 @@ class RandomizedSearchCV(BaseSearchCV):
 
     n_splits_ : int
         The number of cross-validation splits (folds/iterations).
+
+    refit_time_ : float
+        Seconds used for refitting the best estimator on the whole dataset.
+        Present only if ``refit`` is truthy.
+
+        .. versionadded:: 0.20
 
     Notes
     -----
