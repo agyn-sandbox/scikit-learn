@@ -11,6 +11,7 @@ from sklearn.feature_extraction.text import TfidfTransformer
 from sklearn.feature_extraction.text import TfidfVectorizer
 
 from sklearn.feature_extraction.text import ENGLISH_STOP_WORDS
+from sklearn.exceptions import NotFittedError
 
 from sklearn.model_selection import train_test_split
 from sklearn.model_selection import cross_val_score
@@ -557,6 +558,18 @@ def test_feature_names():
 
     for idx, name in enumerate(feature_names):
         assert_equal(idx, cv.vocabulary_.get(name))
+
+
+def test_get_feature_names_with_fixed_vocab_without_fit():
+    cv = CountVectorizer(vocabulary=['b', 'a'])
+    names = cv.get_feature_names()
+    assert names == ['b', 'a']
+
+
+def test_get_feature_names_raises_without_vocab_and_fit():
+    cv = CountVectorizer()
+    with pytest.raises(NotFittedError):
+        cv.get_feature_names()
 
 
 def test_vectorizer_max_features():
