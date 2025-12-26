@@ -40,6 +40,34 @@ iris.target = iris.target[perm]
 iris.data = sparse.csr_matrix(iris.data)
 
 
+def test_sparse_svr_empty_support_vectors():
+    X = np.array([[0, 1, 0, 0],
+                  [0, 0, 0, 1],
+                  [0, 0, 1, 0],
+                  [0, 0, 0, 1]], dtype=np.float64)
+    y = np.array([0.04, 0.04, 0.10, 0.16], dtype=np.float64)
+    params = dict(kernel='linear', gamma=1.0, C=316.227766017, epsilon=0.1)
+
+    dense_model = svm.SVR(**params).fit(X, y)
+    assert dense_model.support_vectors_.shape == (0, X.shape[1])
+
+    X_sparse = sparse.csr_matrix(X)
+    sparse_model = svm.SVR(**params).fit(X_sparse, y)
+
+    assert sparse.isspmatrix_csr(sparse_model.support_vectors_)
+    assert sparse.isspmatrix_csr(sparse_model.dual_coef_)
+    assert sparse_model.support_vectors_.shape == (0, X.shape[1])
+    assert sparse_model.dual_coef_.shape == (1, 0)
+    assert sparse_model.dual_coef_.dtype == np.float64
+    assert sparse_model.support_.size == 0
+    assert sparse_model.dual_coef_.nnz == 0
+
+    assert_array_equal(sparse_model._n_support, dense_model._n_support)
+    assert_array_equal(sparse_model.support_, dense_model.support_)
+    assert_array_almost_equal(sparse_model.predict(X_sparse),
+                              dense_model.predict(X))
+
+
 def check_svm_model_equal(dense_svm, sparse_svm, X_train, y_train, X_test):
     dense_svm.fit(X_train.toarray(), y_train)
     if sparse.isspmatrix(X_test):
@@ -149,7 +177,7 @@ def test_svc_iris():
     for k in ('linear', 'poly', 'rbf'):
         sp_clf = svm.SVC(kernel=k).fit(iris.data, iris.target)
         clf = svm.SVC(kernel=k).fit(iris.data.toarray(),
-                                                   iris.target)
+                                    iris.target)
 
         assert_array_almost_equal(clf.support_vectors_,
                                   sp_clf.support_vectors_.toarray())
