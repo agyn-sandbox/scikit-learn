@@ -239,6 +239,34 @@ def test_k_means_plus_plus_init_2_jobs():
     _check_fitted_model(km)
 
 
+@if_safe_multiprocessing_with_blas
+@pytest.mark.parametrize('algorithm', ['full', 'elkan'])
+def test_kmeans_consistent_inertia_across_n_jobs(algorithm):
+    X_local, _ = make_blobs(n_samples=200, n_features=5, centers=4,
+                            random_state=0)
+    inertias = []
+    for n_jobs in [1, 2, 3]:
+        km = KMeans(n_clusters=4, n_init=8, random_state=42,
+                    algorithm=algorithm, n_jobs=n_jobs)
+        km.fit(X_local)
+        inertias.append(km.inertia_)
+    assert_allclose(inertias, inertias[0], rtol=1e-12)
+
+
+@if_safe_multiprocessing_with_blas
+@pytest.mark.parametrize('algorithm', ['full', 'elkan'])
+def test_k_means_function_consistent_inertia_across_n_jobs(algorithm):
+    X_local, _ = make_blobs(n_samples=200, n_features=5, centers=4,
+                            random_state=0)
+    inertias = []
+    for n_jobs in [1, 2, 3]:
+        _, _, inertia = k_means(X_local, n_clusters=4, n_init=8,
+                                random_state=42, algorithm=algorithm,
+                                n_jobs=n_jobs)
+        inertias.append(inertia)
+    assert_allclose(inertias, inertias[0], rtol=1e-12)
+
+
 def test_k_means_precompute_distances_flag():
     # check that a warning is raised if the precompute_distances flag is not
     # supported
