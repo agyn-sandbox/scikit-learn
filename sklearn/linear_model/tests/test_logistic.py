@@ -702,6 +702,98 @@ def test_ovr_multinomial_iris():
         assert_equal(scores.shape, (3, n_cv, 10))
 
 
+@pytest.mark.parametrize(
+    "solver, penalty, l1_ratios",
+    [
+        ("saga", "elasticnet", [0.3, 0.7]),
+        ("liblinear", "l2", None),
+    ],
+)
+def test_logistic_regression_cv_refit_false_binary_shapes(
+        solver, penalty, l1_ratios):
+    X, y = make_classification(
+        n_samples=80, n_features=6, n_informative=5,
+        n_redundant=0, n_classes=2, random_state=0)
+
+    params = dict(
+        solver=solver,
+        penalty=penalty,
+        Cs=[0.1, 1.0],
+        cv=3,
+        refit=False,
+        tol=1e-3,
+        max_iter=3000 if solver == 'saga' else 200,
+        random_state=0,
+    )
+    if l1_ratios is not None:
+        params["l1_ratios"] = l1_ratios
+
+    clf = LogisticRegressionCV(**params)
+    with ignore_warnings(category=ConvergenceWarning):
+        clf.fit(X, y)
+
+    assert_equal(clf.coef_.shape, (1, X.shape[1]))
+    assert_equal(clf.intercept_.shape, (1,))
+
+    assert_equal(len(clf.coefs_paths_), 1)
+    coefs_path = next(iter(clf.coefs_paths_.values()))
+    class_scores = next(iter(clf.scores_.values()))
+
+    expected_features = X.shape[1] + int(clf.fit_intercept)
+    n_l1 = clf.l1_ratios_.size
+    n_cs = clf.Cs_.size
+
+    if clf.penalty == 'elasticnet':
+        assert_equal(coefs_path.shape,
+                     (params["cv"], n_cs, n_l1, expected_features))
+        assert_equal(class_scores.shape,
+                     (params["cv"], n_cs, n_l1))
+        flattened = coefs_path.reshape(params["cv"], n_cs * n_l1,
+                                       expected_features)
+        assert_equal(flattened.shape[1], n_cs * n_l1)
+    else:
+        assert_equal(coefs_path.shape,
+                     (params["cv"], n_cs, expected_features))
+        assert_equal(class_scores.shape,
+                     (params["cv"], n_cs))
+
+
+def test_logistic_regression_cv_refit_false_multinomial():
+    X, y = make_classification(
+        n_samples=120, n_features=5, n_informative=4,
+        n_redundant=0, n_classes=3, random_state=0)
+
+    clf = LogisticRegressionCV(
+        solver='saga',
+        penalty='elasticnet',
+        l1_ratios=[0.2, 0.8],
+        Cs=[0.1, 1.0],
+        cv=3,
+        refit=False,
+        multi_class='multinomial',
+        tol=1e-3,
+        max_iter=4000,
+        random_state=0,
+    )
+
+    with ignore_warnings(category=ConvergenceWarning):
+        clf.fit(X, y)
+
+    n_classes = len(clf.classes_)
+    expected_features = X.shape[1] + int(clf.fit_intercept)
+    assert_equal(clf.coef_.shape, (n_classes, X.shape[1]))
+    assert_equal(clf.intercept_.shape, (n_classes,))
+
+    for coefs_path, class_scores in zip(clf.coefs_paths_.values(),
+                                        clf.scores_.values()):
+        assert_equal(coefs_path.shape,
+                     (class_scores.shape[0], clf.Cs_.size,
+                      clf.l1_ratios_.size, expected_features))
+        assert_equal(class_scores.shape,
+                     (class_scores.shape[0], clf.Cs_.size,
+                      clf.l1_ratios_.size))
+
+
 def test_logistic_regression_solvers():
     X, y = make_classification(n_features=10, n_informative=5, random_state=0)
 
