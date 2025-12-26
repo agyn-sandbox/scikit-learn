@@ -889,10 +889,11 @@ def export_text(decision_tree, feature_names=None, max_depth=10,
     else:
         value_fmt = "{}{} value: {}\n"
 
-    if feature_names:
-        feature_names_ = [feature_names[i] for i in tree_.feature]
+    if feature_names is not None:
+        feature_names_ = list(feature_names)
     else:
-        feature_names_ = ["feature_{}".format(i) for i in tree_.feature]
+        feature_names_ = ["feature_{}".format(i)
+                          for i in range(tree_.n_features)]
 
     export_text.report = ""
 
@@ -928,7 +929,8 @@ def export_text(decision_tree, feature_names=None, max_depth=10,
             info_fmt_right = info_fmt
 
             if tree_.feature[node] != _tree.TREE_UNDEFINED:
-                name = feature_names_[node]
+                feature_index = tree_.feature[node]
+                name = feature_names_[feature_index]
                 threshold = tree_.threshold[node]
                 threshold = "{1:.{0}f}".format(decimals, threshold)
                 export_text.report += right_child_fmt.format(indent,
