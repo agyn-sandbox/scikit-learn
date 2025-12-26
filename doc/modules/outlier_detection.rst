@@ -239,6 +239,17 @@ Random partitioning produces noticeably shorter paths for anomalies.
 Hence, when a forest of random trees collectively produce shorter path
 lengths for particular samples, they are highly likely to be anomalies.
 
+.. note::
+
+   Setting ``warm_start=True`` allows one to grow the same fitted
+   :class:`ensemble.IsolationForest` by increasing ``n_estimators`` between
+   successive calls to :meth:`fit`. Previously built trees are reused and only
+   the additional estimators are trained. Keeping ``n_estimators`` unchanged
+   raises a :class:`UserWarning` while decreasing it raises a
+   :class:`ValueError`. Parameter changes such as ``max_samples`` or
+   ``max_features`` only impact the newly added trees, so ensembles can become
+   heterogeneous. See :term:`the Glossary <warm_start>` for more details.
+
 The implementation of :class:`ensemble.IsolationForest` is based on an ensemble
 of :class:`tree.ExtraTreeRegressor`. Following Isolation Forest original paper,
 the maximum depth of each tree is set to :math:`\lceil \log_2(n) \rceil` where
@@ -365,4 +376,3 @@ Novelty detection with Local Outlier Factor is illustrated below.
      :target: ../auto_examples/neighbors/sphx_glr_plot_lof_novelty_detection.html
      :align: center
      :scale: 75%
-
