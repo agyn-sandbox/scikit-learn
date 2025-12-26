@@ -935,6 +935,7 @@ def test_cross_val_predict_input_types():
     check_3d = lambda x: x.ndim == 3
     clf = CheckingClassifier(check_X=check_3d)
     predictions = cross_val_predict(clf, X_3d, y)
+    assert_array_equal(predictions.shape, (150,))
 
 
 def test_cross_val_predict_multioutput_predict_proba_list():
