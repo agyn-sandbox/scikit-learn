@@ -198,6 +198,49 @@ def test_check_X():
     assert_array_equal(X, _check_X(X, n_components, n_features))
 
 
+@pytest.mark.parametrize("seed", [0, 1, 2])
+def test_fit_predict_matches_predict_across_seeds(seed):
+    rng = np.random.RandomState(seed)
+    X = rng.randn(200, 3)
+
+    gmm = GaussianMixture(
+        n_components=3,
+        n_init=5,
+        covariance_type='full',
+        random_state=seed,
+    )
+
+    labels_fit_predict = gmm.fit_predict(X)
+    labels_predict = gmm.predict(X)
+
+    assert_array_equal(labels_fit_predict, labels_predict)
+
+
+def test_fit_predict_uses_best_init():
+    rng = np.random.RandomState(0)
+    X = rng.randn(120, 2)
+
+    gmm_fit_predict = GaussianMixture(
+        n_components=2,
+        n_init=5,
+        covariance_type='full',
+        random_state=0,
+    )
+
+    labels_fit_predict = gmm_fit_predict.fit_predict(X)
+
+    gmm_fit_then_predict = GaussianMixture(
+        n_components=2,
+        n_init=5,
+        covariance_type='full',
+        random_state=0,
+    )
+
+    labels_predict = gmm_fit_then_predict.fit(X).predict(X)
+
+    assert_array_equal(labels_fit_predict, labels_predict)
+
+
 def test_check_weights():
     rng = np.random.RandomState(0)
     rand_data = RandomData(rng)
