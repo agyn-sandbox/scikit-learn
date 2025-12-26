@@ -132,6 +132,48 @@ def test_early_stopping_classification(data, scoring, validation_fraction,
         assert gb.n_iter_ == max_iter
 
 
+def test_early_stopping_string_labels_binary():
+    X, y_numeric = make_classification(n_samples=80, n_features=5,
+                                       n_informative=4, n_redundant=0,
+                                       n_classes=2, random_state=0)
+    string_labels = np.array(['class_a', 'class_b'], dtype=object)
+    y = string_labels[y_numeric]
+
+    gb = HistGradientBoostingClassifier(
+        scoring='accuracy',
+        validation_fraction=0.2,
+        n_iter_no_change=5,
+        max_iter=30,
+        random_state=0,
+    )
+    gb.fit(X, y)
+
+    assert set(gb.classes_) == {'class_a', 'class_b'}
+    assert len(gb.validation_score_) > 0
+
+
+def test_early_stopping_string_labels_multiclass():
+    X, y_numeric = make_classification(n_samples=90, n_features=6,
+                                       n_informative=5, n_redundant=0,
+                                       n_repeated=0, n_classes=3,
+                                       n_clusters_per_class=1,
+                                       random_state=0)
+    string_labels = np.array(['class_a', 'class_b', 'class_c'], dtype=object)
+    y = string_labels[y_numeric]
+
+    gb = HistGradientBoostingClassifier(
+        scoring='accuracy',
+        validation_fraction=None,
+        n_iter_no_change=5,
+        max_iter=30,
+        random_state=0,
+    )
+    gb.fit(X, y)
+
+    assert set(gb.classes_) == {'class_a', 'class_b', 'class_c'}
+    assert len(gb.train_score_) > 0
+
+
 @pytest.mark.parametrize(
     'scores, n_iter_no_change, tol, stopping',
     [
