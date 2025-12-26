@@ -203,6 +203,30 @@ def test_nonuniform_strategies(strategy, expected_2bins, expected_3bins):
     assert_array_equal(expected_3bins, Xt.ravel())
 
 
+def test_kmeans_strategy_handles_unsorted_bin_edges_regression():
+    X = np.array([0, 0.5, 2, 3, 9, 10]).reshape(-1, 1)
+    n_bins = 5
+    est = KBinsDiscretizer(n_bins=n_bins, strategy='kmeans',
+                           encode='ordinal')
+
+    Xt = est.fit_transform(X)
+
+    Xt = Xt.ravel()
+    assert Xt.min() >= 0
+    assert Xt.max() <= n_bins - 1
+
+
+def test_kmeans_strategy_bin_edges_are_sorted():
+    rng = np.random.RandomState(0)
+    X = rng.uniform(low=[-3, 5, 10], high=[7, 15, 20], size=(200, 3))
+    est = KBinsDiscretizer(n_bins=5, strategy='kmeans', encode='ordinal')
+
+    est.fit(X)
+
+    for edges in est.bin_edges_:
+        assert np.all(np.diff(edges) >= 0)
+
+
 @pytest.mark.parametrize('strategy', ['uniform', 'kmeans', 'quantile'])
 @pytest.mark.parametrize('encode', ['ordinal', 'onehot', 'onehot-dense'])
 def test_inverse_transform(strategy, encode):

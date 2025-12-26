@@ -172,8 +172,9 @@ class KBinsDiscretizer(BaseEstimator, TransformerMixin):
                 # 1D k-means procedure
                 km = KMeans(n_clusters=n_bins[jj], init=init, n_init=1)
                 centers = km.fit(column[:, None]).cluster_centers_[:, 0]
-                bin_edges[jj] = (centers[1:] + centers[:-1]) * 0.5
-                bin_edges[jj] = np.r_[col_min, bin_edges[jj], col_max]
+                centers.sort()
+                interior = (centers[1:] + centers[:-1]) * 0.5
+                bin_edges[jj] = np.r_[col_min, interior, col_max]
 
         self.bin_edges_ = bin_edges
         self.n_bins_ = n_bins
