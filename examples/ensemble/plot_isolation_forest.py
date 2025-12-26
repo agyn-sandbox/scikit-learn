@@ -21,6 +21,10 @@ Random partitioning produces noticeable shorter paths for anomalies.
 Hence, when a forest of random trees collectively produce shorter path lengths
 for particular samples, they are highly likely to be anomalies.
 
+Enable ``warm_start=True`` to reuse previously fitted trees and incrementally
+grow the ensemble when increasing ``n_estimators`` between calls to
+``fit``.
+
 """
 print(__doc__)
 

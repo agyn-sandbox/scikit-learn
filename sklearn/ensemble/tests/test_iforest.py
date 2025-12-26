@@ -194,6 +194,114 @@ def test_iforest_parallel_regression():
     assert_array_almost_equal(y1, y3)
 
 
+def _generate_warm_start_data(n_samples=128, n_features=2, seed=0):
+    rng_local = np.random.RandomState(seed)
+    return rng_local.randn(n_samples, n_features)
+
+
+def test_warm_start_grows_forest_and_matches_single_fit():
+    X = _generate_warm_start_data()
+
+    warm_clf = IsolationForest(
+        n_estimators=10,
+        warm_start=True,
+        behaviour='new',
+        contamination='auto',
+        random_state=0
+    )
+    warm_clf.fit(X)
+    assert_equal(len(warm_clf.estimators_), 10)
+
+    warm_clf.set_params(n_estimators=25)
+    warm_clf.fit(X)
+    assert_equal(len(warm_clf.estimators_), 25)
+
+    cold_clf = IsolationForest(
+        n_estimators=25,
+        behaviour='new',
+        contamination='auto',
+        random_state=0
+    ).fit(X)
+
+    assert_allclose(warm_clf.decision_function(X),
+                    cold_clf.decision_function(X))
+
+
+def test_warm_start_no_increase_warns():
+    X = _generate_warm_start_data()
+    clf = IsolationForest(
+        n_estimators=8,
+        warm_start=True,
+        behaviour='new',
+        contamination='auto',
+        random_state=0
+    ).fit(X)
+    assert_equal(len(clf.estimators_), 8)
+
+    assert_warns_message(UserWarning,
+                         'Warm-start fitting without increasing n_estimators '
+                         'does not fit new trees.',
+                         clf.fit, X)
+    assert_equal(len(clf.estimators_), 8)
+
+
+def test_warm_start_decrease_raises():
+    X = _generate_warm_start_data()
+    clf = IsolationForest(
+        n_estimators=12,
+        warm_start=True,
+        behaviour='new',
+        contamination='auto',
+        random_state=0
+    ).fit(X)
+
+    clf.set_params(n_estimators=6)
+    assert_raises(ValueError, clf.fit, X)
+
+
+def test_warm_start_estimator_count_growth():
+    X = _generate_warm_start_data()
+    clf = IsolationForest(
+        n_estimators=5,
+        warm_start=True,
+        behaviour='new',
+        contamination='auto',
+        random_state=0
+    )
+
+    clf.fit(X)
+    assert_equal(len(clf.estimators_), 5)
+
+    clf.set_params(n_estimators=9)
+    clf.fit(X)
+    assert_equal(len(clf.estimators_), 9)
+
+    clf.set_params(n_estimators=14)
+    clf.fit(X)
+    assert_equal(len(clf.estimators_), 14)
+
+
+def test_warm_start_idempotent_predictions_when_unchanged():
+    X = _generate_warm_start_data()
+    clf = IsolationForest(
+        n_estimators=7,
+        warm_start=True,
+        behaviour='new',
+        contamination='auto',
+        random_state=0
+    )
+
+    clf.fit(X)
+    baseline = clf.decision_function(X)
+
+    assert_warns_message(UserWarning,
+                         'Warm-start fitting without increasing n_estimators '
+                         'does not fit new trees.',
+                         clf.fit, X)
+    assert_equal(len(clf.estimators_), 7)
+    assert_allclose(clf.decision_function(X), baseline)
+
+
 @pytest.mark.filterwarnings('ignore:default contamination')
 @pytest.mark.filterwarnings('ignore:behaviour="old"')
 def test_iforest_performance():
