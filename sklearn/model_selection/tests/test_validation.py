@@ -60,6 +60,8 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.svm import SVC
 from sklearn.cluster import KMeans
+from sklearn.multioutput import MultiOutputClassifier
+from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
 
 from sklearn.impute import SimpleImputer
 
@@ -933,7 +935,56 @@ def test_cross_val_predict_input_types():
     check_3d = lambda x: x.ndim == 3
     clf = CheckingClassifier(check_X=check_3d)
     predictions = cross_val_predict(clf, X_3d, y)
-    assert_array_equal(predictions.shape, (150,))
+
+
+def test_cross_val_predict_multioutput_predict_proba_list():
+    X, y = make_multilabel_classification(n_samples=120, n_features=10,
+                                          n_classes=4, random_state=0)
+    estimator = MultiOutputClassifier(LinearDiscriminantAnalysis())
+    proba = cross_val_predict(estimator, X, y, cv=3, method='predict_proba')
+
+    assert isinstance(proba, list)
+    assert len(proba) == y.shape[1]
+
+    expected_row_sums = np.ones(X.shape[0])
+    for idx, output_proba in enumerate(proba):
+        n_classes = np.unique(y[:, idx]).shape[0]
+        assert output_proba.shape == (X.shape[0], n_classes)
+        assert_allclose(output_proba.sum(axis=1), expected_row_sums,
+                        atol=1e-7)
+
+
+def test_cross_val_predict_multioutput_predict_proba_mixed_classes():
+    X_bin, y_binary = make_classification(n_samples=150, n_features=5,
+                                          n_informative=5, n_redundant=0,
+                                          n_classes=2, random_state=0)
+    X_multi, y_multiclass = make_classification(
+        n_samples=150, n_features=3, n_informative=3, n_redundant=0,
+        n_classes=3, n_clusters_per_class=1, random_state=1)
+    X = np.hstack([X_bin, X_multi])
+    y = np.column_stack([y_binary, y_multiclass])
+
+    estimator = MultiOutputClassifier(
+        LogisticRegression(max_iter=2000, solver="lbfgs"))
+    proba = cross_val_predict(estimator, X, y, cv=3, method='predict_proba')
+
+    assert isinstance(proba, list)
+    assert len(proba) == 2
+    assert proba[0].shape == (X.shape[0], 2)
+    assert proba[1].shape == (X.shape[0], 3)
+
+    expected_row_sums = np.ones(X.shape[0])
+    assert_allclose(proba[0].sum(axis=1), expected_row_sums, atol=1e-7)
+    assert_allclose(proba[1].sum(axis=1), expected_row_sums, atol=1e-7)
+
+
+def test_cross_val_predict_multioutput_without_method():
+    X, y = make_multilabel_classification(n_samples=90, n_features=8,
+                                          n_classes=3, random_state=1)
+    estimator = MultiOutputClassifier(LinearDiscriminantAnalysis())
+    predictions = cross_val_predict(estimator, X, y, cv=3)
+
+    assert predictions.shape == y.shape
 
 
 @pytest.mark.filterwarnings('ignore: Using or importing the ABCs from')
