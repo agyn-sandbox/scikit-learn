@@ -426,13 +426,26 @@ class BaseHistGradientBoosting(BaseEstimator, ABC):
 
         Scores are computed on validation data or on training data.
         """
+        y_small_train_for_score = y_small_train
+        y_val_for_score = y_val
+
+        if is_classifier(self):
+            y_small_train_for_score = self.classes_[
+                y_small_train.astype(np.intp, copy=False)
+            ]
+
+            if y_val is not None:
+                y_val_for_score = self.classes_[
+                    y_val.astype(np.intp, copy=False)
+                ]
+
         self.train_score_.append(
-            self.scorer_(self, X_binned_small_train, y_small_train)
+            self.scorer_(self, X_binned_small_train, y_small_train_for_score)
         )
 
         if self._use_validation_data:
             self.validation_score_.append(
-                self.scorer_(self, X_binned_val, y_val)
+                self.scorer_(self, X_binned_val, y_val_for_score)
             )
             return self._should_stop(self.validation_score_)
         else:
