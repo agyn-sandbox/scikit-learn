@@ -376,3 +376,28 @@ def test_preserve_dtypes_with_duplicate_columns():
     pd.testing.assert_series_equal(
         X_selected.dtypes, X.dtypes, check_names=False
     )
+
+
+def test_preserve_dtypes_with_nans():
+    pd = pytest.importorskip("pandas")
+
+    X = pd.DataFrame(
+        {
+            "float_nan": pd.Series([1.0, np.nan, 3.0], dtype="Float32"),
+            "int_nan": pd.Series([1, None, 3], dtype="Int64"),
+            "extra": pd.Series([0.5, 0.6, 0.7], dtype=np.float64),
+        }
+    )
+
+    selector = DuplicateSelector(["float_nan", "int_nan"]).set_output(
+        transform="pandas"
+    )
+
+    with config_context(transform_output="pandas", preserve_output_dtypes=True):
+        X_selected = selector.fit(X).transform(X)
+
+    expected = X[["float_nan", "int_nan"]]
+    pd.testing.assert_series_equal(
+        X_selected.dtypes, expected.dtypes, check_names=False
+    )
+    pd.testing.assert_frame_equal(X_selected, expected)

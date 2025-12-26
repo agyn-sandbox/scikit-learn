@@ -82,7 +82,13 @@ def _wrap_in_pandas_container(
 
             if all(col in original_input.columns for col in resolved_columns):
                 original_subset = original_input.loc[:, resolved_columns]
-                if np.array_equal(df.to_numpy(), original_subset.to_numpy()):
+                left = df.to_numpy(dtype=object, na_value=np.nan)
+                right = original_subset.to_numpy(dtype=object, na_value=np.nan)
+                left_isna = pd.isna(left)
+                right_isna = pd.isna(right)
+                if np.array_equal(left_isna, right_isna) and np.array_equal(
+                    left[~left_isna], right[~left_isna]
+                ):
                     df = original_subset.copy()
                     df.columns = resolved_columns
 
