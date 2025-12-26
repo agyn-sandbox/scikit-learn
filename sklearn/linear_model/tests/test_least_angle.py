@@ -704,7 +704,7 @@ class TestLassoLarsICCopyX(object):
                 X, y, np.zeros(X.shape[1]), 0., np.ones(X.shape[1]))
             lars_path_mock.return_value = (
                 np.array([1.0]),
-                np.array([0], dtype=np.int),
+                np.array([0], dtype=np.int64),
                 np.zeros((X.shape[1], 1)),
                 1)
 

@@ -759,9 +759,9 @@ class LassoLars(Lars):
         the tolerance of the optimization.
 
     copy_X : boolean, optional, default True
-        If True, X will be copied; else, it may be overwritten. This value is
-        used as the default for ``fit``; passing ``copy_X`` to ``fit`` takes
-        precedence over this attribute.
+        If True, X will be copied; else, it may be overwritten. This
+        attribute provides the default value used by :meth:`fit` when its
+        ``copy_X`` parameter is ``None``.
 
     fit_path : boolean
         If ``True`` the full path is stored in the ``coef_path_`` attribute.
