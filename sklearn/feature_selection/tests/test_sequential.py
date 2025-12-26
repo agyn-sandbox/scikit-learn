@@ -6,11 +6,12 @@ from numpy.testing import assert_array_equal
 from sklearn.preprocessing import StandardScaler
 from sklearn.pipeline import make_pipeline
 from sklearn.feature_selection import SequentialFeatureSelector
-from sklearn.datasets import make_regression, make_blobs
+from sklearn.datasets import make_blobs, make_classification, make_regression
 from sklearn.linear_model import LinearRegression
 from sklearn.ensemble import HistGradientBoostingRegressor
-from sklearn.model_selection import cross_val_score
+from sklearn.model_selection import LeaveOneGroupOut, cross_val_score
 from sklearn.cluster import KMeans
+from sklearn.neighbors import KNeighborsClassifier
 
 
 def test_bad_n_features_to_select():
@@ -314,3 +315,37 @@ def test_backward_neg_tol():
 
     assert 0 < sfs.get_support().sum() < X.shape[1]
     assert new_score < initial_score
+
+
+def test_sfs_supports_iterable_cv_generator():
+    X, y = make_classification(n_samples=40, n_features=8, random_state=0)
+
+    groups = np.zeros_like(y, dtype=int)
+    groups[y.size // 2 :] = 1
+
+    logo = LeaveOneGroupOut()
+    cv = logo.split(X, y, groups=groups)
+
+    selector = SequentialFeatureSelector(
+        KNeighborsClassifier(n_neighbors=3),
+        n_features_to_select=3,
+        scoring="accuracy",
+        cv=cv,
+    )
+
+    selector.fit(X, y)
+
+    assert selector.get_support().sum() == 3
+
+
+def test_sfs_baseline_cv_int_runs():
+    X, y = make_regression(n_samples=60, n_features=10, random_state=0)
+
+    selector = SequentialFeatureSelector(
+        LinearRegression(), n_features_to_select=4, cv=5
+    )
+
+    selector.fit(X, y)
+
+    assert selector.get_support().sum() == 4
+    assert selector.transform(X).shape[1] == 4
