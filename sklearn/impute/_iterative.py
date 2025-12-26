@@ -112,10 +112,24 @@ class IterativeImputer(_BaseImputer):
         imputed target feature. Can provide significant speed-up when the
         number of features is huge. If `None`, all features will be used.
 
-    initial_strategy : {'mean', 'median', 'most_frequent', 'constant'}, \
+    initial_strategy : {'mean', 'median', 'most_frequent', 'constant'} or \
+            estimator with ``fit``, ``transform`` and ``get_params``, \
             default='mean'
-        Which strategy to use to initialize the missing values. Same as the
-        `strategy` parameter in :class:`~sklearn.impute.SimpleImputer`.
+        Strategy or imputer used to initialize the missing values. When a
+        string is provided, it matches the `strategy` parameter of
+        :class:`~sklearn.impute.SimpleImputer`. When an imputer instance is
+        provided, it is cloned and used for the initialization step. In this
+        case, :class:`~sklearn.impute.SimpleImputer`'s parameters such as
+        ``missing_values`` and ``keep_empty_features`` are synchronized when
+        supported, and ``fill_value`` is ignored.
+
+    fill_value : object, default=None
+        When ``initial_strategy='constant'``, the value used to replace
+        missing values prior to the iterative imputation rounds. Mirrors the
+        ``fill_value`` parameter of :class:`~sklearn.impute.SimpleImputer`.
+        Either a scalar value or an array of shape ``(n_features,)`` can be
+        provided. ``np.nan`` is accepted. Ignored when ``initial_strategy`` is
+        an imputer instance.
 
     imputation_order : {'ascending', 'descending', 'roman', 'arabic', \
             'random'}, default='ascending'
@@ -181,8 +195,10 @@ class IterativeImputer(_BaseImputer):
 
     Attributes
     ----------
-    initial_imputer_ : object of type :class:`~sklearn.impute.SimpleImputer`
-        Imputer used to initialize the missing values.
+    initial_imputer_ : estimator
+        Imputer used to initialize the missing values. It is a
+        :class:`~sklearn.impute.SimpleImputer` when ``initial_strategy`` is a
+        string, otherwise it is a clone of the provided imputer instance.
 
     imputation_sequence_ : list of tuples
         Each tuple has `(feat_idx, neighbor_feat_idx, estimator)`, where
@@ -279,8 +295,10 @@ class IterativeImputer(_BaseImputer):
         "tol": [Interval(Real, 0, None, closed="left")],
         "n_nearest_features": [None, Interval(Integral, 1, None, closed="left")],
         "initial_strategy": [
-            StrOptions({"mean", "median", "most_frequent", "constant"})
+            StrOptions({"mean", "median", "most_frequent", "constant"}),
+            HasMethods(["fit", "transform", "get_params"]),
         ],
+        "fill_value": "no_validation",
         "imputation_order": [
             StrOptions({"ascending", "descending", "roman", "arabic", "random"})
         ],
@@ -301,6 +319,7 @@ class IterativeImputer(_BaseImputer):
         tol=1e-3,
         n_nearest_features=None,
         initial_strategy="mean",
+        fill_value=None,
         imputation_order="ascending",
         skip_complete=False,
         min_value=-np.inf,
@@ -322,6 +341,7 @@ class IterativeImputer(_BaseImputer):
         self.tol = tol
         self.n_nearest_features = n_nearest_features
         self.initial_strategy = initial_strategy
+        self.fill_value = fill_value
         self.imputation_order = imputation_order
         self.skip_complete = skip_complete
         self.min_value = min_value
@@ -610,11 +630,31 @@ class IterativeImputer(_BaseImputer):
         X_missing_mask = _get_mask(X, self.missing_values)
         mask_missing_values = X_missing_mask.copy()
         if self.initial_imputer_ is None:
-            self.initial_imputer_ = SimpleImputer(
-                missing_values=self.missing_values,
-                strategy=self.initial_strategy,
-                keep_empty_features=self.keep_empty_features,
-            )
+            if isinstance(self.initial_strategy, str):
+                self.initial_imputer_ = SimpleImputer(
+                    missing_values=self.missing_values,
+                    strategy=self.initial_strategy,
+                    fill_value=self.fill_value,
+                    keep_empty_features=self.keep_empty_features,
+                )
+            else:
+                self.initial_imputer_ = clone(self.initial_strategy)
+                init_params = self.initial_imputer_.get_params(deep=False)
+                params_to_set = {}
+                if "missing_values" in init_params:
+                    params_to_set["missing_values"] = self.missing_values
+                if "keep_empty_features" in init_params:
+                    params_to_set["keep_empty_features"] = (
+                        self.keep_empty_features
+                    )
+                if params_to_set:
+                    self.initial_imputer_.set_params(**params_to_set)
+                if self.fill_value is not None:
+                    warnings.warn(
+                        "'fill_value' is ignored when ``initial_strategy`` is set "
+                        "to an imputer instance.",
+                        UserWarning,
+                    )
             X_filled = self.initial_imputer_.fit_transform(X)
         else:
             X_filled = self.initial_imputer_.transform(X)
