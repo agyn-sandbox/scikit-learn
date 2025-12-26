@@ -199,3 +199,40 @@ def test_huber_better_r2_score():
 
     # The huber model should also fit poorly on the outliers.
     assert_greater(ridge_outlier_score, huber_outlier_score)
+
+
+def test_huber_bool_X_dense_cast_and_fit():
+    X, y = make_regression(n_samples=40, n_features=5, noise=2.0,
+                           random_state=0)
+    X_bool = X > 0
+    X_float = X_bool.astype(np.float64)
+
+    huber_bool = HuberRegressor()
+    huber_bool.fit(X_bool, y)
+
+    huber_float = HuberRegressor()
+    huber_float.fit(X_float, y)
+
+    assert_array_almost_equal(huber_bool.coef_, huber_float.coef_)
+    assert_almost_equal(huber_bool.intercept_, huber_float.intercept_)
+    assert_array_almost_equal(huber_bool.predict(X_bool),
+                              huber_float.predict(X_float))
+
+
+def test_huber_bool_X_sparse_cast_and_fit():
+    X, y = make_regression(n_samples=40, n_features=5, noise=2.0,
+                           random_state=0)
+    X_bool = X > 0
+    X_sparse_bool = sparse.csr_matrix(X_bool)
+    X_sparse_float = X_sparse_bool.astype(np.float64)
+
+    huber_bool = HuberRegressor()
+    huber_bool.fit(X_sparse_bool, y)
+
+    huber_float = HuberRegressor()
+    huber_float.fit(X_sparse_float, y)
+
+    assert_array_almost_equal(huber_bool.coef_, huber_float.coef_)
+    assert_almost_equal(huber_bool.intercept_, huber_float.intercept_)
+    assert_array_almost_equal(huber_bool.predict(X_sparse_bool),
+                              huber_float.predict(X_sparse_float))
