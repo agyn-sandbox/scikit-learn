@@ -1019,7 +1019,8 @@ def roc_curve(
     thresholds : ndarray of shape = (n_thresholds,)
         Decreasing thresholds on the decision function used to compute
         fpr and tpr. `thresholds[0]` represents no instances being predicted
-        and is arbitrarily set to `max(y_score) + 1`.
+        and is set to the next representable value above ``max(y_score)`` for
+        floating scores (or ``max(y_score) + 1`` otherwise).
 
     See Also
     --------
@@ -1083,7 +1084,11 @@ def roc_curve(
     # to make sure that the curve starts at (0, 0)
     tps = np.r_[0, tps]
     fps = np.r_[0, fps]
-    thresholds = np.r_[thresholds[0] + 1, thresholds]
+    if np.issubdtype(thresholds.dtype, np.floating):
+        prepend_thresh = np.nextafter(thresholds[0], np.inf, dtype=thresholds.dtype)
+    else:
+        prepend_thresh = thresholds[0] + 1
+    thresholds = np.r_[prepend_thresh, thresholds]
 
     if fps[-1] <= 0:
         warnings.warn(

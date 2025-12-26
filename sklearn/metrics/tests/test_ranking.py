@@ -216,6 +216,49 @@ def test_roc_curve_end_points():
     assert fpr.shape == thr.shape
 
 
+def test_roc_curve_thresholds_probabilities_below_one():
+    # Probabilistic scores below 1.0 should prepend the smallest greater float
+    y_true = np.array([0, 0, 1, 1])
+    y_score = np.array([0.75, 0.2, 0.33, 0.9], dtype=np.float64)
+
+    fpr, tpr, thresholds = roc_curve(y_true, y_score, drop_intermediate=False)
+
+    max_score = y_score.max()
+    expected_prepend = np.nextafter(max_score, np.inf)
+
+    assert thresholds[0] == pytest.approx(expected_prepend)
+    assert thresholds[0] > max_score
+    assert np.all(np.diff(thresholds) <= 0)
+    assert thresholds.shape == fpr.shape == tpr.shape
+
+
+def test_roc_curve_thresholds_probability_one():
+    # The prepend threshold for a max score of 1.0 should be nextafter(1.0)
+    y_true = np.array([0, 1, 0, 1])
+    y_score = np.array([1.0, 0.6, 0.4, 0.8], dtype=np.float64)
+
+    fpr, tpr, thresholds = roc_curve(y_true, y_score, drop_intermediate=False)
+
+    expected_prepend = np.nextafter(1.0, np.inf, dtype=thresholds.dtype)
+
+    assert thresholds[0] == pytest.approx(expected_prepend)
+    assert thresholds[1] == pytest.approx(1.0)
+    assert np.all(np.diff(thresholds) <= 0)
+    assert thresholds.shape == fpr.shape == tpr.shape
+
+
+def test_roc_curve_thresholds_integer_scores():
+    # Non-probability integer scores should continue to prepend max(score) + 1
+    y_true = np.array([0, 1, 0, 1])
+    y_score = np.array([2, 3, 1, 0], dtype=np.int64)
+
+    fpr, tpr, thresholds = roc_curve(y_true, y_score, drop_intermediate=False)
+
+    assert thresholds[0] == y_score.max() + 1
+    assert np.all(np.diff(thresholds) <= 0)
+    assert thresholds.shape == fpr.shape == tpr.shape
+
+
 def test_roc_returns_consistency():
     # Test whether the returned threshold matches up with tpr
     # make small toy dataset
@@ -2199,3 +2242,46 @@ def test_ranking_metric_pos_label_types(metric, classes):
         assert not np.isnan(metric_1).any()
         assert not np.isnan(metric_2).any()
         assert not np.isnan(thresholds).any()
+
+
+def test_roc_curve_thresholds_probabilities_below_one():
+    # Probabilistic scores below 1.0 should prepend the smallest greater float
+    y_true = np.array([0, 0, 1, 1])
+    y_score = np.array([0.75, 0.2, 0.33, 0.9], dtype=np.float64)
+
+    fpr, tpr, thresholds = roc_curve(y_true, y_score, drop_intermediate=False)
+
+    max_score = y_score.max()
+    expected_prepend = np.nextafter(max_score, np.inf)
+
+    assert thresholds[0] == pytest.approx(expected_prepend)
+    assert thresholds[0] > max_score
+    assert np.all(np.diff(thresholds) <= 0)
+    assert thresholds.shape == fpr.shape == tpr.shape
+
+
+def test_roc_curve_thresholds_probability_one():
+    # The prepend threshold for a max score of 1.0 should be nextafter(1.0)
+    y_true = np.array([0, 1, 0, 1])
+    y_score = np.array([1.0, 0.6, 0.4, 0.8], dtype=np.float64)
+
+    fpr, tpr, thresholds = roc_curve(y_true, y_score, drop_intermediate=False)
+
+    expected_prepend = np.nextafter(1.0, np.inf, dtype=thresholds.dtype)
+
+    assert thresholds[0] == pytest.approx(expected_prepend)
+    assert thresholds[1] == pytest.approx(1.0)
+    assert np.all(np.diff(thresholds) <= 0)
+    assert thresholds.shape == fpr.shape == tpr.shape
+
+
+def test_roc_curve_thresholds_integer_scores():
+    # Non-probability integer scores should continue to prepend max(score) + 1
+    y_true = np.array([0, 1, 0, 1])
+    y_score = np.array([2, 3, 1, 0], dtype=np.int64)
+
+    fpr, tpr, thresholds = roc_curve(y_true, y_score, drop_intermediate=False)
+
+    assert thresholds[0] == y_score.max() + 1
+    assert np.all(np.diff(thresholds) <= 0)
+    assert thresholds.shape == fpr.shape == tpr.shape
