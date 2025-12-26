@@ -216,6 +216,12 @@ Changelog
   match `spectral_clustering`.
   :pr:`13726` by :user:`Shuzhe Xiao <fdas3213>`.
 
+- |Fix| :class:`cluster.OPTICS` now coerces fractional ``min_samples`` and
+  ``min_cluster_size`` values to integer neighbor counts, preventing
+  ``NearestNeighbors`` from receiving floats and raising a ``TypeError`` when
+  ``min_samples`` is provided as a fraction.
+  :issue:`41` by :user:`Casey Brooks <caseybrooks>`.
+
 :mod:`sklearn.feature_selection`
 ................................
 - |Fix| Fixed a bug where :class:`VarianceThreshold` with `threshold=0` did not
