@@ -397,6 +397,26 @@ def test_export_text():
     assert export_text(reg, decimals=1, show_weights=True) == expected_report
 
 
+def test_export_text_single_feature_with_names():
+    X_single = [[-2], [-1], [-1], [1], [1], [2]]
+    y_single = [-1, -1, -1, 1, 1, 1]
+    clf = DecisionTreeClassifier(random_state=0)
+    clf.fit(X_single, y_single)
+
+    report = export_text(clf, feature_names=['single'])
+    assert_in('single <=', report)
+
+
+def test_export_text_single_feature_auto_names():
+    X_single = [[-2], [-1], [-1], [1], [1], [2]]
+    y_single = [-1, -1, -1, 1, 1, 1]
+    clf = DecisionTreeClassifier(random_state=0)
+    clf.fit(X_single, y_single)
+
+    report = export_text(clf)
+    assert_in('feature_0', report)
+
+
 def test_plot_tree_entropy(pyplot):
     # mostly smoke tests
     # Check correctness of export_graphviz for criterion = entropy
