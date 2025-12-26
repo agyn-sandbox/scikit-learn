@@ -529,6 +529,35 @@ def test_pipeline_fit_transform():
     assert_array_almost_equal(X_trans, X_trans2)
 
 
+def test_pipeline_len():
+    steps = [('transf', Transf()), ('clf', FitParamT())]
+    pipe = Pipeline(steps)
+    assert len(pipe) == len(steps)
+
+    passthrough_steps = [('transf', Transf()), ('final', 'passthrough')]
+    pipe_passthrough = Pipeline(passthrough_steps)
+    assert len(pipe_passthrough) == len(passthrough_steps)
+
+    none_steps = [('transf', Transf()), ('final', None)]
+    pipe_none = Pipeline(none_steps)
+    assert len(pipe_none) == len(none_steps)
+
+
+def test_pipeline_slice_with_len():
+    steps = [
+        ('transf1', Transf()),
+        ('transf2', Transf()),
+        ('clf', FitParamT())
+    ]
+    pipe = Pipeline(steps)
+
+    pipe_all = pipe[:len(pipe)]
+
+    assert isinstance(pipe_all, Pipeline)
+    assert pipe_all.steps == steps
+    assert len(pipe_all) == len(pipe)
+
+
 def test_pipeline_slice():
     pipe = Pipeline([('transf1', Transf()),
                      ('transf2', Transf()),

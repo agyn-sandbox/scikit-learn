@@ -199,6 +199,10 @@ class Pipeline(_BaseComposition):
             if trans is not None and trans != 'passthrough':
                 yield idx, name, trans
 
+    def __len__(self):
+        """Return the number of steps in the pipeline."""
+        return len(self.steps)
+
     def __getitem__(self, ind):
         """Returns a sub-pipeline or a single esimtator in the pipeline
 
