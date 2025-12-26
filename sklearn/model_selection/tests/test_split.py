@@ -493,6 +493,19 @@ def test_shuffle_stratifiedkfold():
         assert_not_equal(set(test0), set(test1))
     check_cv_coverage(kf0, X_40, y, groups=None, expected_n_splits=5)
 
+    # Ensure that with shuffle=True each class receives a distinct permutation
+    # even when using the same integer random_state. Prior to fixing
+    # https://github.com/scikit-learn/scikit-learn/pull/13124 the per-class
+    # permutations were identical, making this assertion fail.
+    y = np.array([0] * 40 + [1] * 40)
+    X = np.zeros_like(y)
+    skf = StratifiedKFold(5, shuffle=True, random_state=0)
+    perm0, perm1 = [], []
+    for _, test_idx in skf.split(X, y):
+        perm0.extend(test_idx[test_idx < 40])
+        perm1.extend(test_idx[test_idx >= 40] - 40)
+    assert perm0 != perm1
+
 
 def test_kfold_can_detect_dependent_samples_on_digits():  # see #2372
     # The digits samples are dependent: they are apparently grouped by authors
