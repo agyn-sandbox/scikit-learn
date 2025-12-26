@@ -12,10 +12,12 @@ from sklearn.utils._testing import assert_allclose
 from sklearn.utils._testing import assert_allclose_dense_sparse
 from sklearn.utils._testing import assert_array_equal
 from sklearn.utils._testing import assert_array_almost_equal
+from sklearn.utils._param_validation import InvalidParameterError
 
 # make IterativeImputer available
 from sklearn.experimental import enable_iterative_imputer  # noqa
 
+from sklearn.base import clone
 from sklearn.datasets import load_diabetes
 from sklearn.impute import MissingIndicator
 from sklearn.impute import SimpleImputer, IterativeImputer, KNNImputer
@@ -92,6 +94,86 @@ def test_imputation_shape(strategy):
     iterative_imputer = IterativeImputer(initial_strategy=strategy)
     X_imputed = iterative_imputer.fit_transform(X)
     assert X_imputed.shape == (10, 2)
+
+
+class _MinimalImputer:
+    def fit(self, X, y=None):
+        return self
+
+    def transform(self, X):
+        return X
+
+    def get_params(self, deep=True):
+        return {}
+
+
+@pytest.mark.parametrize("fill_value", [7, np.nan])
+def test_iterative_imputer_constant_strategy_respects_fill_value(fill_value):
+    X = np.array([[np.nan, 1], [2, np.nan], [3, 4]], dtype=float)
+
+    expected = SimpleImputer(
+        strategy="constant", fill_value=fill_value
+    ).fit_transform(X)
+
+    imputer = IterativeImputer(
+        initial_strategy="constant", fill_value=fill_value, max_iter=0, random_state=0
+    )
+    transformed = imputer.fit_transform(X)
+
+    assert_allclose(transformed, expected, equal_nan=True)
+
+
+def test_iterative_imputer_constant_default_fill_value_matches_simple_imputer():
+    X = np.array([[np.nan, 1], [2, np.nan], [3, 4]], dtype=float)
+
+    expected = SimpleImputer(strategy="constant").fit_transform(X)
+
+    imputer = IterativeImputer(initial_strategy="constant", max_iter=0, random_state=0)
+    transformed = imputer.fit_transform(X)
+
+    assert_allclose(transformed, expected, equal_nan=True)
+
+
+def test_iterative_imputer_accepts_imputer_instance_for_initial_strategy():
+    X = np.array([[-1, 1, -1], [2, -1, 3], [-1, -1, -1]], dtype=float)
+
+    seed_imputer = SimpleImputer(strategy="most_frequent")
+    expected = clone(seed_imputer).set_params(
+        missing_values=-1, keep_empty_features=True
+    ).fit_transform(X)
+
+    imputer = IterativeImputer(
+        initial_strategy=seed_imputer,
+        max_iter=0,
+        missing_values=-1,
+        keep_empty_features=True,
+        random_state=0,
+    )
+
+    transformed = imputer.fit_transform(X)
+
+    assert_allclose(transformed, expected, equal_nan=True)
+
+
+def test_iterative_imputer_warns_when_fill_value_with_imputer_instance():
+    X = np.array([[np.nan, 1], [2, np.nan]], dtype=float)
+
+    seed_imputer = SimpleImputer(strategy="mean")
+    imputer = IterativeImputer(
+        initial_strategy=seed_imputer, fill_value=0, max_iter=0, random_state=0
+    )
+
+    with pytest.warns(UserWarning, match="'fill_value' is ignored"):
+        imputer.fit_transform(X)
+
+
+def test_iterative_imputer_requires_feature_names_out():
+    X = np.array([[np.nan, 1], [2, np.nan]], dtype=float)
+
+    imputer = IterativeImputer(initial_strategy=_MinimalImputer(), max_iter=0)
+
+    with pytest.raises(InvalidParameterError):
+        imputer.fit(X)
 
 
 @pytest.mark.parametrize("strategy", ["mean", "median", "most_frequent"])
