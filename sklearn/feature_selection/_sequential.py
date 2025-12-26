@@ -8,12 +8,12 @@ import numpy as np
 import warnings
 
 from ._base import SelectorMixin
-from ..base import BaseEstimator, MetaEstimatorMixin, clone
+from ..base import BaseEstimator, MetaEstimatorMixin, clone, is_classifier
 from ..utils._param_validation import HasMethods, Hidden, Interval, StrOptions
 from ..utils._param_validation import RealNotInt
 from ..utils._tags import _safe_tags
 from ..utils.validation import check_is_fitted
-from ..model_selection import cross_val_score
+from ..model_selection import check_cv, cross_val_score
 from ..metrics import get_scorer_names
 
 
@@ -79,19 +79,23 @@ class SequentialFeatureSelector(SelectorMixin, MetaEstimatorMixin, BaseEstimator
 
         If None, the estimator's score method is used.
 
-    cv : int, cross-validation generator or an iterable, default=None
-        Determines the cross-validation splitting strategy.
-        Possible inputs for cv are:
+    cv : int, cross-validation generator, or iterable, default=None
+        Determines the cross-validation splitting strategy. Possible inputs
+        for ``cv`` are:
 
-        - None, to use the default 5-fold cross validation,
+        - ``None``, to use the default 5-fold cross validation,
         - integer, to specify the number of folds in a `(Stratified)KFold`,
         - :term:`CV splitter`,
-        - An iterable yielding (train, test) splits as arrays of indices.
+        - an iterable yielding (train, test) splits as arrays of indices.
 
-        For integer/None inputs, if the estimator is a classifier and ``y`` is
-        either binary or multiclass, :class:`StratifiedKFold` is used. In all
-        other cases, :class:`KFold` is used. These splitters are instantiated
-        with `shuffle=False` so the splits will be the same across calls.
+        For integer/``None`` inputs, if the estimator is a classifier and ``y``
+        is either binary or multiclass, :class:`StratifiedKFold` is used. In
+        all other cases, :class:`KFold` is used. These splitters are
+        instantiated with ``shuffle=False`` so the splits will be the same
+        across calls.
+
+        Iterables, including generators, are materialized once for reuse. This
+        can increase memory consumption when the number of folds is large.
 
         Refer :ref:`User Guide <cross_validation>` for the various
         cross-validation strategies that can be used here.
@@ -273,9 +277,11 @@ class SequentialFeatureSelector(SelectorMixin, MetaEstimatorMixin, BaseEstimator
 
         old_score = -np.inf
         is_auto_select = self.tol is not None and self.n_features_to_select == "auto"
+        cv = check_cv(self.cv, y, classifier=is_classifier(self.estimator))
+
         for _ in range(n_iterations):
             new_feature_idx, new_score = self._get_best_new_feature_score(
-                cloned_estimator, X, y, current_mask
+                cloned_estimator, X, y, current_mask, cv
             )
             if is_auto_select and ((new_score - old_score) < self.tol):
                 break
@@ -291,7 +297,7 @@ class SequentialFeatureSelector(SelectorMixin, MetaEstimatorMixin, BaseEstimator
 
         return self
 
-    def _get_best_new_feature_score(self, estimator, X, y, current_mask):
+    def _get_best_new_feature_score(self, estimator, X, y, current_mask, cv):
         # Return the best new feature and its score to add to the current_mask,
         # i.e. return the best new feature and its score to add (resp. remove)
         # when doing forward selection (resp. backward selection).
@@ -309,7 +315,7 @@ class SequentialFeatureSelector(SelectorMixin, MetaEstimatorMixin, BaseEstimator
                 estimator,
                 X_new,
                 y,
-                cv=self.cv,
+                cv=cv,
                 scoring=self.scoring,
                 n_jobs=self.n_jobs,
             ).mean()
