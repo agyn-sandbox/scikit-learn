@@ -113,6 +113,11 @@ Support for Python 3.4 and below has been officially dropped.
   :class:`linear_model.MultiTaskLasso` which were breaking when
   ``warm_start = True``. :issue:`12360` by :user:`Aakanksha Joshi <joaak>`.
 
+- |Fix| Ensured :class:`linear_model.LassoLarsIC.fit` defers to the
+  estimator's ``copy_X`` attribute when ``copy_X`` is not provided, so that
+  preprocessing and :func:`linear_model.lars_path` receive the same value.
+  :issue:`20` by :user:`Casey Brooks <caseybrooks>`.
+
 - |API| :func:`linear_model.logistic_regression_path` is deprecated
   in version 0.21 and will be removed in version 0.23.
   :issue:`12821` by :user:`Nicolas Hug <NicolasHug>`.

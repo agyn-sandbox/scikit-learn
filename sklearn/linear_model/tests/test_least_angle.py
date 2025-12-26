@@ -6,6 +6,7 @@ import numpy as np
 from scipy import linalg
 
 import pytest
+from unittest.mock import patch
 
 from sklearn.model_selection import train_test_split
 from sklearn.utils.testing import assert_equal
@@ -686,3 +687,42 @@ def test_lasso_lars_vs_R_implementation():
 
     assert_array_almost_equal(r2, skl_betas2, decimal=12)
     ###########################################################################
+
+
+class TestLassoLarsICCopyX(object):
+
+    def _make_data(self):
+        X = np.arange(15, dtype=np.float64).reshape(5, 3)
+        y = np.arange(5, dtype=np.float64)
+        return X, y
+
+    def _fit_and_assert(self, estimator, fit_kwargs, expected_copy):
+        X, y = self._make_data()
+        with patch('sklearn.linear_model.least_angle.LinearModel._preprocess_data') as preprocess_mock, \
+                patch('sklearn.linear_model.least_angle.lars_path') as lars_path_mock:
+            preprocess_mock.return_value = (
+                X, y, np.zeros(X.shape[1]), 0., np.ones(X.shape[1]))
+            lars_path_mock.return_value = (
+                np.array([1.0]),
+                np.array([0], dtype=np.int),
+                np.zeros((X.shape[1], 1)),
+                1)
+
+            estimator.fit(X, y, **fit_kwargs)
+            assert preprocess_mock.call_args[0][-1] == expected_copy
+            assert lars_path_mock.call_args[1]['copy_X'] == expected_copy
+
+    def test_respects_estimator_copy_false(self):
+        estimator = linear_model.LassoLarsIC(copy_X=False, precompute=False)
+        self._fit_and_assert(estimator, {}, False)
+
+    def test_override_to_true_and_reverse(self):
+        estimator = linear_model.LassoLarsIC(copy_X=False, precompute=False)
+        self._fit_and_assert(estimator, {'copy_X': True}, True)
+
+        estimator = linear_model.LassoLarsIC(copy_X=True, precompute=False)
+        self._fit_and_assert(estimator, {'copy_X': False}, False)
+
+    def test_default_none_resolves_to_true(self):
+        estimator = linear_model.LassoLarsIC(precompute=False)
+        self._fit_and_assert(estimator, {}, True)
