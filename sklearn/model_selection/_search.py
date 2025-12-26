@@ -414,7 +414,7 @@ class BaseSearchCV(six.with_metaclass(ABCMeta, BaseEstimator,
         Seconds used for refitting the best estimator on the complete
         dataset when ``refit`` is truthy.
 
-        .. versionadded:: 0.20
+        .. versionadded:: 0.22
     """
 
     @abstractmethod
@@ -440,7 +440,7 @@ class BaseSearchCV(six.with_metaclass(ABCMeta, BaseEstimator,
         return self.estimator._estimator_type
 
     def score(self, X, y=None):
-        """Returns the score on the given data, if the estimator has been refit.
+        """Return the score on the given data if the estimator has been refit.
 
         This uses the score defined by ``scoring`` where provided, and the
         ``best_estimator_.score`` method otherwise.
@@ -515,7 +515,8 @@ class BaseSearchCV(six.with_metaclass(ABCMeta, BaseEstimator,
 
     @if_delegate_has_method(delegate=('best_estimator_', 'estimator'))
     def predict_log_proba(self, X):
-        """Call predict_log_proba on the estimator with the best found parameters.
+        """Call predict_log_proba on the estimator with the best found
+        parameters.
 
         Only available if ``refit=True`` and the underlying estimator supports
         ``predict_log_proba``.
@@ -532,7 +533,8 @@ class BaseSearchCV(six.with_metaclass(ABCMeta, BaseEstimator,
 
     @if_delegate_has_method(delegate=('best_estimator_', 'estimator'))
     def decision_function(self, X):
-        """Call decision_function on the estimator with the best found parameters.
+        """Call decision_function on the estimator with the best found
+        parameters.
 
         Only available if ``refit=True`` and the underlying estimator supports
         ``decision_function``.
@@ -776,14 +778,14 @@ class BaseSearchCV(six.with_metaclass(ABCMeta, BaseEstimator,
         if self.refit:
             self.best_estimator_ = clone(base_estimator).set_params(
                 **self.best_params_)
-            refit_start_time = time.time()
+            refit_start_time = time.perf_counter()
             try:
                 if y is not None:
                     self.best_estimator_.fit(X, y, **fit_params)
                 else:
                     self.best_estimator_.fit(X, **fit_params)
             finally:
-                self.refit_time_ = time.time() - refit_start_time
+                self.refit_time_ = time.perf_counter() - refit_start_time
 
         # Store the only scorer not as a dict for single metric evaluation
         self.scorer_ = scorers if self.multimetric_ else scorers['score']
@@ -1094,7 +1096,7 @@ class GridSearchCV(BaseSearchCV):
         Seconds used for refitting the best estimator on the whole dataset.
         Present only if ``refit`` is truthy.
 
-        .. versionadded:: 0.20
+        .. versionadded:: 0.22
 
     Notes
     ------
@@ -1411,7 +1413,7 @@ class RandomizedSearchCV(BaseSearchCV):
         Seconds used for refitting the best estimator on the whole dataset.
         Present only if ``refit`` is truthy.
 
-        .. versionadded:: 0.20
+        .. versionadded:: 0.22
 
     Notes
     -----
