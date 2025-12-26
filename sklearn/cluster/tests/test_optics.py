@@ -8,7 +8,8 @@ import pytest
 from sklearn.datasets.samples_generator import make_blobs
 from sklearn.cluster.optics_ import (OPTICS,
                                      _extend_region,
-                                     _extract_xi_labels)
+                                     _extract_xi_labels,
+                                     cluster_optics_xi)
 from sklearn.metrics.cluster import contingency_matrix
 from sklearn.metrics.pairwise import pairwise_distances
 from sklearn.cluster.dbscan_ import DBSCAN
@@ -176,6 +177,74 @@ def test_minimum_number_of_sample_check():
     clust = OPTICS(max_eps=5.0 * 0.3, min_samples=10, min_cluster_size=1)
 
     # Run the fit
+    assert_raise_message(ValueError, msg, clust.fit, X)
+
+
+def test_optics_min_samples_float_no_typeerror():
+    X, _ = make_blobs(n_samples=200, centers=3, random_state=0)
+
+    clust = OPTICS(min_samples=0.5)
+    clust.fit(X)
+
+    assert clust.min_samples_ == 100
+    assert clust.min_cluster_size_ == 100
+
+
+def test_optics_min_samples_fraction_rounding_ceil():
+    X = np.arange(30, dtype=float).reshape(-1, 1)
+
+    clust = OPTICS(min_samples=0.21)
+    clust.fit(X)
+
+    # ceil(0.21 * 30) == 7
+    assert clust.min_samples_ == 7
+
+
+def test_cluster_optics_xi_accepts_float_min_samples():
+    X, _ = make_blobs(n_samples=40, centers=3, random_state=1)
+    optics = OPTICS(min_samples=5, min_cluster_size=6, xi=0.05)
+    optics.fit(X)
+
+    labels_int, clusters_int = cluster_optics_xi(
+        optics.reachability_,
+        optics.predecessor_,
+        optics.ordering_,
+        5,
+        6,
+        optics.xi,
+        optics.predecessor_correction)
+
+    labels_float, clusters_float = cluster_optics_xi(
+        optics.reachability_,
+        optics.predecessor_,
+        optics.ordering_,
+        0.125,  # ceil(0.125 * 40) == 5
+        0.15,   # ceil(0.15 * 40) == 6
+        optics.xi,
+        optics.predecessor_correction)
+
+    assert_array_equal(labels_float, labels_int)
+    assert_array_equal(clusters_float, clusters_int)
+
+
+@pytest.mark.parametrize("min_samples", [0, -1, 1.5])
+def test_optics_min_samples_invalid_values(min_samples):
+    msg = 'min_samples must be a positive integer or a float between 0 and 1'
+
+    X, _ = make_blobs(n_samples=10, centers=1, random_state=2)
+    clust = OPTICS(min_samples=min_samples)
+
+    assert_raise_message(ValueError, msg, clust.fit, X)
+
+
+@pytest.mark.parametrize("min_cluster_size", [0, -2, 1.3])
+def test_optics_min_cluster_size_invalid_values(min_cluster_size):
+    msg = ('min_cluster_size must be a positive integer or a float between '
+           '0 and 1')
+
+    X, _ = make_blobs(n_samples=12, centers=1, random_state=3)
+    clust = OPTICS(min_samples=2, min_cluster_size=min_cluster_size)
+
     assert_raise_message(ValueError, msg, clust.fit, X)
 
 

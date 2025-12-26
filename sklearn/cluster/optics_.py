@@ -11,7 +11,9 @@ Authors: Shane Grigsby <refuge@rocktalus.com>
 License: BSD 3 clause
 """
 
+import math
 import warnings
+
 import numpy as np
 
 from ..utils import check_array
@@ -47,9 +49,9 @@ class OPTICS(BaseEstimator, ClusterMixin):
     min_samples : int > 1 or float between 0 and 1 (default=None)
         The number of samples in a neighborhood for a point to be considered as
         a core point. Also, up and down steep regions can't have more then
-        ``min_samples`` consecutive non-steep points. Expressed as an absolute
-        number or a fraction of the number of samples (rounded to be at least
-        2).
+        ``min_samples`` consecutive non-steep points. If given as a fraction,
+        it is converted to ``ceil(min_samples * n_samples)`` and clipped to be
+        at least 2.
 
     max_eps : float, optional (default=np.inf)
         The maximum distance between two samples for one to be considered as
@@ -115,9 +117,10 @@ class OPTICS(BaseEstimator, ClusterMixin):
 
     min_cluster_size : int > 1 or float between 0 and 1 (default=None)
         Minimum number of samples in an OPTICS cluster, expressed as an
-        absolute number or a fraction of the number of samples (rounded to be
-        at least 2). If ``None``, the value of ``min_samples`` is used instead.
-        Used only when ``cluster_method='xi'``.
+        absolute number or a fraction of the number of samples. Fractions are
+        converted to ``ceil(min_cluster_size * n_samples)`` with a minimum of
+        2. If ``None``, the normalized value of ``min_samples`` is used
+        instead. Used only when ``cluster_method='xi'``.
 
     algorithm : {'auto', 'ball_tree', 'kd_tree', 'brute'}, optional
         Algorithm used to compute the nearest neighbors:
@@ -165,6 +168,13 @@ class OPTICS(BaseEstimator, ClusterMixin):
     predecessor_ : array, shape (n_samples,)
         Point that a sample was reached from, indexed by object order.
         Seed points have a predecessor of -1.
+
+    min_samples_ : int
+        Normalized number of samples used when querying nearest neighbors.
+
+    min_cluster_size_ : int
+        Normalized cluster size used by the Xi extraction method. Equal to
+        ``min_samples_`` when ``min_cluster_size`` is ``None``.
 
     cluster_hierarchy_ : array, shape (n_clusters, 2)
         The list of clusters in the form of ``[start, end]`` in each row, with
@@ -240,9 +250,21 @@ if metric=’precomputed’.
                              " 'dbscan' or 'xi' but is %s" %
                              self.cluster_method)
 
+        n_samples = X.shape[0]
+        min_samples = _normalize_size(self.min_samples, n_samples,
+                                      'min_samples')
+        if self.min_cluster_size is None:
+            min_cluster_size = min_samples
+        else:
+            min_cluster_size = _normalize_size(self.min_cluster_size,
+                                               n_samples,
+                                               'min_cluster_size')
+        self.min_samples_ = min_samples
+        self.min_cluster_size_ = min_cluster_size
+
         (self.ordering_, self.core_distances_, self.reachability_,
          self.predecessor_) = compute_optics_graph(
-             X=X, min_samples=self.min_samples, algorithm=self.algorithm,
+             X=X, min_samples=min_samples, algorithm=self.algorithm,
              leaf_size=self.leaf_size, metric=self.metric,
              metric_params=self.metric_params, p=self.p, n_jobs=self.n_jobs,
              max_eps=self.max_eps)
@@ -253,8 +275,8 @@ if metric=’precomputed’.
                 self.reachability_,
                 self.predecessor_,
                 self.ordering_,
-                self.min_samples,
-                self.min_cluster_size,
+                min_samples,
+                min_cluster_size,
                 self.xi,
                 self.predecessor_correction)
             self.cluster_hierarchy_ = clusters_
@@ -288,6 +310,16 @@ def _validate_size(size, n_samples, param_name):
         raise ValueError('%s must be no greater than the'
                          ' number of samples (%d). Got %d' %
                          (param_name, n_samples, size))
+
+
+def _normalize_size(size, n_samples, param_name):
+    """Validate and normalize a size parameter to an integer >= 2."""
+    _validate_size(size, n_samples, param_name)
+    if size <= 1:
+        normalized = int(math.ceil(size * n_samples))
+    else:
+        normalized = int(size)
+    return max(2, normalized)
 
 
 # OPTICS helper functions
@@ -343,8 +375,9 @@ if metric=’precomputed’.
 
     min_samples : int (default=5)
         The number of samples in a neighborhood for a point to be considered
-        as a core point. Expressed as an absolute number or a fraction of the
-        number of samples (rounded to be at least 2).
+        as a core point. Expressed as an absolute number or, if a fraction, it
+        is converted to ``ceil(min_samples * n_samples)`` and clipped to be at
+        least 2.
 
     max_eps : float, optional (default=np.inf)
         The maximum distance between two samples for one to be considered as
@@ -435,9 +468,7 @@ if metric=’precomputed’.
        structure." ACM SIGMOD Record 28, no. 2 (1999): 49-60.
     """
     n_samples = X.shape[0]
-    _validate_size(min_samples, n_samples, 'min_samples')
-    if min_samples <= 1:
-        min_samples = max(2, min_samples * n_samples)
+    min_samples = _normalize_size(min_samples, n_samples, 'min_samples')
 
     # Start all points as 'unprocessed' ##
     reachability_ = np.empty(n_samples)
@@ -585,13 +616,15 @@ def cluster_optics_xi(reachability, predecessor, ordering, min_samples,
     min_samples : int > 1 or float between 0 and 1 (default=None)
         The same as the min_samples given to OPTICS. Up and down steep regions
         can't have more then ``min_samples`` consecutive non-steep points.
-        Expressed as an absolute number or a fraction of the number of samples
-        (rounded to be at least 2).
+        Fractions are converted to ``ceil(min_samples * n_samples)`` and
+        clipped to be at least 2.
 
     min_cluster_size : int > 1 or float between 0 and 1 (default=None)
         Minimum number of samples in an OPTICS cluster, expressed as an
-        absolute number or a fraction of the number of samples (rounded to be
-        at least 2). If ``None``, the value of ``min_samples`` is used instead.
+        absolute number or a fraction of the number of samples. Fractions are
+        converted to ``ceil(min_cluster_size * n_samples)`` with a minimum of
+        2. If ``None``, the normalized value of ``min_samples`` is used
+        instead.
 
     xi : float, between 0 and 1, optional (default=0.05)
         Determines the minimum steepness on the reachability plot that
@@ -617,14 +650,12 @@ def cluster_optics_xi(reachability, predecessor, ordering, min_samples,
         np.unique(labels)``.
     """
     n_samples = len(reachability)
-    _validate_size(min_samples, n_samples, 'min_samples')
-    if min_samples <= 1:
-        min_samples = max(2, min_samples * n_samples)
+    min_samples = _normalize_size(min_samples, n_samples, 'min_samples')
     if min_cluster_size is None:
         min_cluster_size = min_samples
-    _validate_size(min_cluster_size, n_samples, 'min_cluster_size')
-    if min_cluster_size <= 1:
-        min_cluster_size = max(2, min_cluster_size * n_samples)
+    else:
+        min_cluster_size = _normalize_size(min_cluster_size, n_samples,
+                                           'min_cluster_size')
 
     clusters = _xi_cluster(reachability[ordering], predecessor[ordering],
                            ordering, xi,
