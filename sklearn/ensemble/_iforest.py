@@ -345,7 +345,9 @@ class IsolationForest(OutlierMixin, BaseBagging):
             return self
 
         # else, define offset_ wrt contamination parameter
-        self.offset_ = np.percentile(self.score_samples(X), 100.0 * self.contamination)
+        self.offset_ = np.percentile(
+            self._score_samples_no_validation(X), 100.0 * self.contamination
+        )
 
         return self
 
@@ -434,6 +436,14 @@ class IsolationForest(OutlierMixin, BaseBagging):
 
         # Check data
         X = self._validate_data(X, accept_sparse="csr", dtype=np.float32, reset=False)
+
+        return self._score_samples_no_validation(X)
+
+    def _score_samples_no_validation(self, X):
+        if issparse(X):
+            X = X.tocsr()
+        else:
+            X = np.asarray(X, dtype=np.float32)
 
         # Take the opposite of the scores as bigger is better (here less
         # abnormal)

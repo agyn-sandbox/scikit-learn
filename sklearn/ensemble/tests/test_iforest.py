@@ -10,6 +10,7 @@ import pytest
 import warnings
 
 import numpy as np
+import pandas as pd
 
 from sklearn.utils._testing import assert_array_equal
 from sklearn.utils._testing import assert_array_almost_equal
@@ -31,6 +32,12 @@ from unittest.mock import Mock, patch
 # load iris & diabetes dataset
 iris = load_iris()
 diabetes = load_diabetes()
+
+
+FEATURE_NAMES_WARNING = (
+    "X does not have valid feature names, but IsolationForest was fitted with "
+    "feature names"
+)
 
 
 def test_iforest(global_random_seed):
@@ -73,6 +80,51 @@ def test_iforest_sparse(global_random_seed):
             dense_results = dense_classifier.predict(X_test)
 
             assert_array_equal(sparse_results, dense_results)
+
+
+def test_iforest_fit_dataframe_contamination_no_warning():
+    X = pd.DataFrame({"a": [-1.1, 0.3, 0.5, 100]})
+
+    iso = IsolationForest(random_state=0, contamination=0.05)
+
+    with warnings.catch_warnings():
+        warnings.filterwarnings(
+            "error", message=FEATURE_NAMES_WARNING, category=UserWarning
+        )
+        warnings.filterwarnings("ignore", category=DeprecationWarning)
+        iso.fit(X)
+
+
+def test_iforest_dataframe_then_ndarray_warns_on_score_and_predict():
+    X = pd.DataFrame({"a": [-1.1, 0.3, 0.5, 100]})
+
+    iso = IsolationForest(random_state=0, contamination=0.05)
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", category=DeprecationWarning)
+        iso.fit(X)
+
+    X_array = X.to_numpy()
+
+    with pytest.warns(UserWarning, match=FEATURE_NAMES_WARNING):
+        iso.score_samples(X_array)
+
+    with pytest.warns(UserWarning, match=FEATURE_NAMES_WARNING):
+        iso.predict(X_array)
+
+
+def test_iforest_fit_dataframe_auto_no_warning_and_offset():
+    X = pd.DataFrame({"a": [-1.1, 0.3, 0.5, 100]})
+    iso = IsolationForest(random_state=0, contamination="auto")
+
+    with warnings.catch_warnings():
+        warnings.filterwarnings(
+            "error", message=FEATURE_NAMES_WARNING, category=UserWarning
+        )
+        warnings.filterwarnings("ignore", category=DeprecationWarning)
+        iso.fit(X)
+
+    assert iso.offset_ == -0.5
 
 
 def test_iforest_error():
