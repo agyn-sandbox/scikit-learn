@@ -286,12 +286,15 @@ class BaseLibSVM(BaseEstimator, metaclass=ABCMeta):
             n_class = 1
         n_SV = self.support_vectors_.shape[0]
 
-        dual_coef_indices = np.tile(np.arange(n_SV), n_class)
-        dual_coef_indptr = np.arange(0, dual_coef_indices.size + 1,
-                                     dual_coef_indices.size / n_class)
-        self.dual_coef_ = sp.csr_matrix(
-            (dual_coef_data, dual_coef_indices, dual_coef_indptr),
-            (n_class, n_SV))
+        if n_SV == 0 or dual_coef_data.size == 0:
+            self.dual_coef_ = sp.csr_matrix((n_class, 0), dtype=np.float64)
+        else:
+            dual_coef_indices = np.tile(np.arange(n_SV), n_class)
+            dual_coef_indptr = np.arange(0, dual_coef_indices.size + 1,
+                                         dual_coef_indices.size / n_class)
+            self.dual_coef_ = sp.csr_matrix(
+                (dual_coef_data, dual_coef_indices, dual_coef_indptr),
+                (n_class, n_SV))
 
     def predict(self, X):
         """Perform regression on samples in X.
@@ -907,9 +910,10 @@ def _fit_liblinear(X, y, C, fit_intercept, intercept_scaling, class_weight,
     bias = -1.0
     if fit_intercept:
         if intercept_scaling <= 0:
-            raise ValueError("Intercept scaling is %r but needs to be greater than 0."
-                             " To disable fitting an intercept,"
-                             " set fit_intercept=False." % intercept_scaling)
+            raise ValueError(
+                "Intercept scaling is %r but needs to be greater than 0."
+                " To disable fitting an intercept, set fit_intercept=False."
+                % intercept_scaling)
         else:
             bias = intercept_scaling
 
