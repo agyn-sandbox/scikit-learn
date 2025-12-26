@@ -12,6 +12,7 @@ from sklearn.utils._testing import assert_allclose
 from sklearn.utils._testing import assert_allclose_dense_sparse
 from sklearn.utils._testing import assert_array_equal
 from sklearn.utils._testing import assert_array_almost_equal
+from sklearn.utils._param_validation import InvalidParameterError
 
 # make IterativeImputer available
 from sklearn.experimental import enable_iterative_imputer  # noqa
@@ -95,6 +96,17 @@ def test_imputation_shape(strategy):
     assert X_imputed.shape == (10, 2)
 
 
+class _MinimalImputer:
+    def fit(self, X, y=None):
+        return self
+
+    def transform(self, X):
+        return X
+
+    def get_params(self, deep=True):
+        return {}
+
+
 @pytest.mark.parametrize("fill_value", [7, np.nan])
 def test_iterative_imputer_constant_strategy_respects_fill_value(fill_value):
     X = np.array([[np.nan, 1], [2, np.nan], [3, 4]], dtype=float)
@@ -153,6 +165,15 @@ def test_iterative_imputer_warns_when_fill_value_with_imputer_instance():
 
     with pytest.warns(UserWarning, match="'fill_value' is ignored"):
         imputer.fit_transform(X)
+
+
+def test_iterative_imputer_requires_feature_names_out():
+    X = np.array([[np.nan, 1], [2, np.nan]], dtype=float)
+
+    imputer = IterativeImputer(initial_strategy=_MinimalImputer(), max_iter=0)
+
+    with pytest.raises(InvalidParameterError):
+        imputer.fit(X)
 
 
 @pytest.mark.parametrize("strategy", ["mean", "median", "most_frequent"])

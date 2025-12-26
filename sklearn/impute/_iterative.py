@@ -113,13 +113,16 @@ class IterativeImputer(_BaseImputer):
         number of features is huge. If `None`, all features will be used.
 
     initial_strategy : {'mean', 'median', 'most_frequent', 'constant'} or \
-            estimator with ``fit``, ``transform`` and ``get_params``, \
+            estimator with ``fit``, ``transform``, ``get_params`` and \
+            ``get_feature_names_out``, \
             default='mean'
         Strategy or imputer used to initialize the missing values. When a
         string is provided, it matches the `strategy` parameter of
         :class:`~sklearn.impute.SimpleImputer`. When an imputer instance is
-        provided, it is cloned and used for the initialization step. In this
-        case, :class:`~sklearn.impute.SimpleImputer`'s parameters such as
+        provided, it is cloned and used for the initialization step. The
+        instance must implement ``fit``, ``transform``, ``get_params`` and
+        ``get_feature_names_out``. In this case,
+        :class:`~sklearn.impute.SimpleImputer`'s parameters such as
         ``missing_values`` and ``keep_empty_features`` are synchronized when
         supported, and ``fill_value`` is ignored.
 
@@ -296,7 +299,12 @@ class IterativeImputer(_BaseImputer):
         "n_nearest_features": [None, Interval(Integral, 1, None, closed="left")],
         "initial_strategy": [
             StrOptions({"mean", "median", "most_frequent", "constant"}),
-            HasMethods(["fit", "transform", "get_params"]),
+            HasMethods([
+                "fit",
+                "transform",
+                "get_params",
+                "get_feature_names_out",
+            ]),
         ],
         "fill_value": "no_validation",
         "imputation_order": [
