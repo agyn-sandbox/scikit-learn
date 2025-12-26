@@ -20,6 +20,7 @@ from sklearn.compose import (
     make_column_selector,
 )
 from sklearn.exceptions import NotFittedError
+from sklearn.feature_selection import VarianceThreshold
 from sklearn.preprocessing import FunctionTransformer
 from sklearn.preprocessing import StandardScaler, Normalizer, OneHotEncoder
 
@@ -2051,6 +2052,61 @@ def test_column_transform_set_output_after_fitting(remainder):
     }
     for col, dtype in X_trans_df.dtypes.items():
         assert dtype == expected_dtypes[col]
+
+
+def test_column_transformer_remainder_estimator_set_output_pandas():
+    pd = pytest.importorskip("pandas")
+    df = pd.DataFrame(
+        {
+            "a": pd.Series([True, False, True], dtype="bool"),
+            "b": pd.Series([1, 2, 3], dtype="int64"),
+        }
+    )
+
+    ct = ColumnTransformer(
+        [],
+        remainder=VarianceThreshold(),
+        verbose_feature_names_out=False,
+    ).set_output(transform="pandas")
+
+    transformed = ct.fit_transform(df)
+
+    assert isinstance(transformed, pd.DataFrame)
+    assert list(transformed.columns) == ["a", "b"]
+    assert transformed.dtypes["a"] == df.dtypes["a"]
+    assert transformed.dtypes["b"] == df.dtypes["b"]
+    pd.testing.assert_frame_equal(transformed, df)
+
+
+def test_column_transformer_remainder_estimator_matches_explicit_transformers_pandas():
+    pd = pytest.importorskip("pandas")
+    df = pd.DataFrame(
+        {
+            "a": pd.Series([True, False, True], dtype="bool"),
+            "b": pd.Series([1, 2, 3], dtype="int64"),
+        }
+    )
+
+    identity = FunctionTransformer(validate=False)
+
+    remainder_ct = ColumnTransformer(
+        [("identity", identity, ["a"])],
+        remainder=VarianceThreshold(),
+        verbose_feature_names_out=False,
+    ).set_output(transform="pandas")
+
+    explicit_ct = ColumnTransformer(
+        [
+            ("identity", FunctionTransformer(validate=False), ["a"]),
+            ("variance", VarianceThreshold(), ["b"]),
+        ],
+        verbose_feature_names_out=False,
+    ).set_output(transform="pandas")
+
+    remainder_result = remainder_ct.fit_transform(df)
+    explicit_result = explicit_ct.fit_transform(df)
+
+    pd.testing.assert_frame_equal(remainder_result, explicit_result)
 
 
 # PandasOutTransformer that does not define get_feature_names_out and always expects
