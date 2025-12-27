@@ -241,4 +241,3 @@ def test_huber_bool_sample_weight():
     assert_array_equal(huber_bool.outliers_, huber_float.outliers_)
 
 
-def test_huber_bool_dense_X_equivalence():
