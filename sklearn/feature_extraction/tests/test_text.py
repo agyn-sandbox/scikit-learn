@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 from collections.abc import Mapping
 import re
+import unicodedata
 import warnings
 
 import pytest
@@ -96,6 +97,20 @@ def test_strip_accents():
     a = "this is à test"
     expected = 'this is a test'
     assert strip_accents_unicode(a) == expected
+
+
+def test_strip_accents_unicode_nfkd_inputs():
+    assert strip_accents_unicode('ñ') == 'n'
+    assert strip_accents_unicode('n' + '\u0303') == 'n'
+
+    assert strip_accents_unicode('e' + '\u0301' + '\u0308') == 'e'
+
+    pre_normalized = unicodedata.normalize('NFKD', 'é')
+    assert strip_accents_unicode(pre_normalized) == 'e'
+
+    mixed = '\u0625' + 'ñ' + '\uFF21'
+    expected = '\u0627' + 'n' + 'A'
+    assert strip_accents_unicode(mixed) == expected
 
 
 def test_to_ascii():
