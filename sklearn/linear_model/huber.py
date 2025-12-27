@@ -7,10 +7,11 @@ from scipy import optimize
 
 from ..base import BaseEstimator, RegressorMixin
 from .base import LinearModel
-from ..utils import check_X_y
+from ..utils import check_X_y, check_array
 from ..utils import check_consistent_length
 from ..utils import axis0_safe_slice
 from ..utils.extmath import safe_sparse_dot
+from ..utils.validation import FLOAT_DTYPES
 
 
 def _huber_loss_and_gradient(w, X, y, epsilon, alpha, sample_weight=None):
@@ -251,12 +252,13 @@ class HuberRegressor(LinearModel, RegressorMixin, BaseEstimator):
         self : object
         """
         X, y = check_X_y(
-            X, y, copy=False, accept_sparse=['csr'], y_numeric=True)
+            X, y, copy=False, accept_sparse=['csr'], y_numeric=True, dtype=FLOAT_DTYPES)
         if sample_weight is not None:
-            sample_weight = np.array(sample_weight)
+            sample_weight = check_array(
+                sample_weight, ensure_2d=False, dtype=FLOAT_DTYPES)
             check_consistent_length(y, sample_weight)
         else:
-            sample_weight = np.ones_like(y)
+            sample_weight = np.ones_like(y, dtype=np.float64)
 
         if self.epsilon < 1.0:
             raise ValueError(

@@ -2,6 +2,7 @@
 # License: BSD 3 clause
 
 import numpy as np
+from numpy.testing import assert_allclose
 from scipy import optimize, sparse
 import pytest
 
@@ -199,3 +200,44 @@ def test_huber_better_r2_score():
 
     # The huber model should also fit poorly on the outliers.
     assert_greater(ridge_outlier_score, huber_outlier_score)
+
+
+
+def test_huber_bool_dense_X_equivalence():
+    rng = np.random.RandomState(0)
+    X_bool = rng.rand(30, 5) > 0.5
+    y = rng.randn(30)
+
+    huber_bool = HuberRegressor().fit(X_bool, y)
+    huber_float = HuberRegressor().fit(X_bool.astype(np.float64), y)
+
+    assert_allclose(huber_bool.coef_, huber_float.coef_, rtol=1e-7,
+                    atol=1e-7)
+    assert_allclose(huber_bool.intercept_, huber_float.intercept_,
+                    rtol=1e-7, atol=1e-7)
+    assert_allclose(huber_bool.scale_, huber_float.scale_,
+                    rtol=1e-7, atol=1e-7)
+    assert_array_equal(huber_bool.outliers_, huber_float.outliers_)
+
+
+def test_huber_bool_sample_weight():
+    rng = np.random.RandomState(0)
+    X = rng.randn(40, 4)
+    y = rng.randn(40)
+    sample_weight_bool = rng.rand(40) > 0.3
+    sample_weight_bool[0] = True
+    sample_weight_bool[1] = False
+
+    huber_bool = HuberRegressor().fit(X, y, sample_weight=sample_weight_bool)
+    huber_float = HuberRegressor().fit(
+        X, y, sample_weight=sample_weight_bool.astype(np.float64))
+
+    assert_allclose(huber_bool.coef_, huber_float.coef_, rtol=1e-7,
+                    atol=1e-7)
+    assert_allclose(huber_bool.intercept_, huber_float.intercept_,
+                    rtol=1e-7, atol=1e-7)
+    assert_allclose(huber_bool.scale_, huber_float.scale_,
+                    rtol=1e-7, atol=1e-7)
+    assert_array_equal(huber_bool.outliers_, huber_float.outliers_)
+
+
