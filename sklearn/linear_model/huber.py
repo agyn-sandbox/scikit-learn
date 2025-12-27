@@ -252,7 +252,7 @@ class HuberRegressor(LinearModel, RegressorMixin, BaseEstimator):
         self : object
         """
         X, y = check_X_y(
-            X, y, copy=False, accept_sparse=['csr'], y_numeric=True)
+            X, y, copy=False, accept_sparse=['csr'], y_numeric=True, dtype=FLOAT_DTYPES)
         if sample_weight is not None:
             sample_weight = check_array(
                 sample_weight, ensure_2d=False, dtype=FLOAT_DTYPES)
