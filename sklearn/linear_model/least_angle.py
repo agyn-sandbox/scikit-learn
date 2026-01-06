@@ -1401,7 +1401,9 @@ class LassoLarsIC(LassoLars):
         the tolerance of the optimization.
 
     copy_X : boolean, optional, default True
-        If True, X will be copied; else, it may be overwritten.
+        If True, X will be copied; else, it may be overwritten. This
+        attribute provides the default value used by :meth:`fit` when its
+        ``copy_X`` parameter is ``None``.
 
     positive : boolean (default=False)
         Restrict coefficients to be >= 0. Be aware that you might want to
@@ -1479,7 +1481,7 @@ class LassoLarsIC(LassoLars):
         self.eps = eps
         self.fit_path = True
 
-    def fit(self, X, y, copy_X=True):
+    def fit(self, X, y, copy_X=None):
         """Fit the model using X, y as training data.
 
         Parameters
@@ -1490,8 +1492,10 @@ class LassoLarsIC(LassoLars):
         y : array-like, shape (n_samples,)
             target values. Will be cast to X's dtype if necessary
 
-        copy_X : boolean, optional, default True
-            If ``True``, X will be copied; else, it may be overwritten.
+        copy_X : bool or None, optional, default None
+            Whether the design matrix should be copied. If ``True``, ``X``
+            will be copied; else, it may be overwritten. If ``None``, the
+            estimator's ``copy_X`` attribute is used.
 
         Returns
         -------
@@ -1500,14 +1504,17 @@ class LassoLarsIC(LassoLars):
         """
         X, y = check_X_y(X, y, y_numeric=True)
 
+        effective_copy_X = self.copy_X if copy_X is None else copy_X
+
         X, y, Xmean, ymean, Xstd = LinearModel._preprocess_data(
-            X, y, self.fit_intercept, self.normalize, self.copy_X)
+            X, y, self.fit_intercept, self.normalize, effective_copy_X)
         max_iter = self.max_iter
 
         Gram = self.precompute
 
         alphas_, active_, coef_path_, self.n_iter_ = lars_path(
-            X, y, Gram=Gram, copy_X=copy_X, copy_Gram=True, alpha_min=0.0,
+            X, y, Gram=Gram, copy_X=effective_copy_X, copy_Gram=True,
+            alpha_min=0.0,
             method='lasso', verbose=self.verbose, max_iter=max_iter,
             eps=self.eps, return_n_iter=True, positive=self.positive)
 
