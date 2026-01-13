@@ -1620,6 +1620,75 @@ def test_feature_union_set_output():
     assert_array_equal(X_trans.index, X_test.index)
 
 
+def test_feature_union_pandas_preserves_aggregated_index():
+    """FeatureUnion should keep aggregator-defined index when lengths shrink."""
+    pd = pytest.importorskip("pandas")
+
+    class MeanAggregator(TransformerMixin, BaseEstimator):
+        def fit(self, X, y=None):
+            self.feature_names_in_ = list(X.columns)
+            return self
+
+        def transform(self, X, y=None):
+            summary = X.mean().to_frame().T
+            summary.index = pd.Index(["mean"], name="summary")
+            summary.columns = [f"mean_{name}" for name in self.feature_names_in_]
+            return summary
+
+        def get_feature_names_out(self, input_features=None):
+            return np.asarray(
+                [f"mean_{name}" for name in self.feature_names_in_], dtype=object
+            )
+
+    X, _ = load_iris(as_frame=True, return_X_y=True)
+    X_train, X_test = train_test_split(X, random_state=0)
+
+    union = FeatureUnion([("aggregate", MeanAggregator())])
+    union.set_output(transform="pandas")
+    union.fit(X_train)
+
+    X_trans = union.transform(X_test)
+
+    assert isinstance(X_trans, pd.DataFrame)
+    assert_array_equal(X_trans.columns, union.get_feature_names_out())
+    assert X_trans.index.equals(pd.Index(["mean"], name="summary"))
+
+
+def test_feature_union_pandas_aligns_index_when_lengths_match():
+    """FeatureUnion still aligns to original index when lengths match."""
+    pd = pytest.importorskip("pandas")
+
+    class IdentityWithCustomIndex(TransformerMixin, BaseEstimator):
+        def fit(self, X, y=None):
+            self.feature_names_in_ = list(X.columns)
+            return self
+
+        def transform(self, X, y=None):
+            renamed = [f"copy_{name}" for name in self.feature_names_in_]
+            df = X.copy()
+            df.columns = renamed
+            df.index = pd.Index(np.arange(len(df)) + 100, name="custom")
+            return df
+
+        def get_feature_names_out(self, input_features=None):
+            return np.asarray(
+                [f"copy_{name}" for name in self.feature_names_in_], dtype=object
+            )
+
+    X, _ = load_iris(as_frame=True, return_X_y=True)
+    X_train, X_test = train_test_split(X, random_state=1)
+
+    union = FeatureUnion([("identity", IdentityWithCustomIndex())])
+    union.set_output(transform="pandas")
+    union.fit(X_train)
+
+    X_trans = union.transform(X_test)
+
+    assert isinstance(X_trans, pd.DataFrame)
+    assert_array_equal(X_trans.columns, union.get_feature_names_out())
+    assert X_trans.index.equals(X_test.index)
+
+
 def test_feature_union_getitem():
     """Check FeatureUnion.__getitem__ returns expected results."""
     scalar = StandardScaler()

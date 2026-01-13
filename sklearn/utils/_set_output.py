@@ -55,11 +55,20 @@ def _wrap_in_pandas_container(
     if isinstance(data_to_wrap, pd.DataFrame):
         if columns is not None:
             data_to_wrap.columns = columns
-        if index is not None:
+        if index is not None and len(index) == len(data_to_wrap):
             data_to_wrap.index = index
+        # Keep the output's own index when lengths differ to preserve
+        # aggregator-defined indexing and avoid length mismatch errors.
         return data_to_wrap
 
-    return pd.DataFrame(data_to_wrap, index=index, columns=columns)
+    dataframe_index = (
+        index
+        if index is not None and len(index) == len(data_to_wrap)
+        else None
+    )
+    # Ignore a mismatched index for ndarray outputs; pandas would otherwise
+    # raise due to unequal lengths, and downstream reducers may shorten rows.
+    return pd.DataFrame(data_to_wrap, index=dataframe_index, columns=columns)
 
 
 def _get_output_config(method, estimator=None):
