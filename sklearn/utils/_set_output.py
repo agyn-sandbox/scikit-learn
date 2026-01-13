@@ -61,6 +61,16 @@ def _wrap_in_pandas_container(
         # aggregator-defined indexing and avoid length mismatch errors.
         return data_to_wrap
 
+    if isinstance(data_to_wrap, pd.Series):
+        dataframe_to_wrap = data_to_wrap.to_frame()
+        if columns is not None:
+            dataframe_to_wrap.columns = columns
+        if index is not None and len(index) == len(dataframe_to_wrap):
+            dataframe_to_wrap.index = index
+        # Series outputs mirror the same constraint: mismatched lengths keep
+        # the Series-provided index so aggregation semantics survive.
+        return dataframe_to_wrap
+
     dataframe_index = (
         index
         if index is not None and len(index) == len(data_to_wrap)

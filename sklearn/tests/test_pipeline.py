@@ -1654,6 +1654,42 @@ def test_feature_union_pandas_preserves_aggregated_index():
     assert X_trans.index.equals(pd.Index(["mean"], name="summary"))
 
 
+def test_feature_union_pandas_preserves_aggregated_index_series():
+    """Series outputs keep their aggregated index under pandas wrapping."""
+    pd = pytest.importorskip("pandas")
+
+    class SeriesAggregator(TransformerMixin, BaseEstimator):
+        def fit(self, X, y=None):
+            self.feature_names_in_ = list(X.columns)
+            return self
+
+        def transform(self, X, y=None):
+            grouped = X.groupby("group")["value"].sum()
+            grouped.index.name = "group"
+            return grouped
+
+        def get_feature_names_out(self, input_features=None):
+            return np.asarray(["value_sum"], dtype=object)
+
+    X = pd.DataFrame(
+        {
+            "value": [1, 2, 3, 4],
+            "group": ["a", "a", "b", "b"],
+        },
+        index=pd.Index([0, 1, 2, 3], name="sample"),
+    )
+
+    union = FeatureUnion([("aggregate", SeriesAggregator())])
+    union.set_output(transform="pandas")
+    union.fit(X)
+
+    X_trans = union.transform(X)
+
+    assert isinstance(X_trans, pd.DataFrame)
+    assert_array_equal(X_trans.columns, union.get_feature_names_out())
+    assert X_trans.index.equals(pd.Index(["a", "b"], name="group"))
+
+
 def test_feature_union_pandas_aligns_index_when_lengths_match():
     """FeatureUnion still aligns to original index when lengths match."""
     pd = pytest.importorskip("pandas")
