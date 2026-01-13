@@ -36,6 +36,51 @@ def test__wrap_in_pandas_container_dense_update_columns_and_index():
     assert_array_equal(new_df.index, new_index)
 
 
+def test__wrap_in_pandas_container_preserve_index_on_length_mismatch_dataframe():
+    """Do not overwrite DataFrame index when length differs."""
+    pd = pytest.importorskip("pandas")
+    data = pd.DataFrame({"a": [1, 2]}, index=pd.Index([5, 6], name="agg"))
+    mismatched_index = pd.Index([0, 1, 2])
+
+    wrapped = _wrap_in_pandas_container(data, columns=None, index=mismatched_index)
+
+    assert wrapped.index.equals(data.index)
+    assert_array_equal(wrapped.columns, data.columns)
+
+
+def test__wrap_in_pandas_container_ndarray_ignore_index_on_length_mismatch():
+    """Ignore provided index for ndarray outputs when lengths mismatch."""
+    pd = pytest.importorskip("pandas")
+    X = np.asarray([[1, 2], [3, 4]])
+    mismatched_index = pd.Index([0, 1, 2])
+
+    wrapped = _wrap_in_pandas_container(
+        X,
+        columns=lambda: np.asarray(["f0", "f1"], dtype=object),
+        index=mismatched_index,
+    )
+
+    assert isinstance(wrapped, pd.DataFrame)
+    assert_array_equal(wrapped.index.to_numpy(), np.arange(len(X)))
+    assert_array_equal(wrapped.columns, np.asarray(["f0", "f1"], dtype=object))
+
+
+def test__wrap_in_pandas_container_align_when_lengths_match():
+    """Provided index is still applied when lengths match."""
+    pd = pytest.importorskip("pandas")
+    X = np.asarray([[1, 2], [3, 4]])
+    index = pd.Index([10, 11])
+
+    wrapped = _wrap_in_pandas_container(
+        X,
+        columns=lambda: np.asarray(["f0", "f1"], dtype=object),
+        index=index,
+    )
+
+    assert_array_equal(wrapped.index.to_numpy(), index.to_numpy())
+    assert_array_equal(wrapped.columns, np.asarray(["f0", "f1"], dtype=object))
+
+
 def test__wrap_in_pandas_container_error_validation():
     """Check errors in _wrap_in_pandas_container."""
     X = np.asarray([[1, 0, 3], [0, 0, 1]])
