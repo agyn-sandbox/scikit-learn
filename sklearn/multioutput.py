@@ -320,10 +320,27 @@ class MultiOutputClassifier(MultiOutputEstimator, ClassifierMixin):
     ----------
     estimators_ : list of ``n_output`` estimators
         Estimators used for predictions.
+    classes_ : list of arrays
+        Class labels for each output, of shape ``(n_outputs,)``. Each entry is
+        an array of shape ``(n_classes_i,)`` containing the class labels for
+        the corresponding output.
     """
 
     def __init__(self, estimator, n_jobs=None):
         super().__init__(estimator, n_jobs)
+
+    def fit(self, X, y, sample_weight=None):
+        super().fit(X, y, sample_weight=sample_weight)
+        self.classes_ = [est.classes_ for est in self.estimators_]
+        return self
+
+    @if_delegate_has_method('estimator')
+    def partial_fit(self, X, y, classes=None, sample_weight=None):
+        super().partial_fit(X, y, classes=classes, sample_weight=sample_weight)
+        if not all(hasattr(est, 'classes_') for est in self.estimators_):
+            return self
+        self.classes_ = [est.classes_ for est in self.estimators_]
+        return self
 
     def predict_proba(self, X):
         """Probability estimates.
@@ -420,7 +437,7 @@ class _BaseChain(BaseEstimator, metaclass=ABCMeta):
             if self.order_ == 'random':
                 self.order_ = random_state.permutation(Y.shape[1])
         elif sorted(self.order_) != list(range(Y.shape[1])):
-                raise ValueError("invalid order")
+            raise ValueError("invalid order")
 
         self.estimators_ = [clone(self.base_estimator)
                             for _ in range(Y.shape[1])]
